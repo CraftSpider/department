@@ -5,7 +5,7 @@ use core::{array, ptr};
 pub type Result<T> = core::result::Result<T, ()>; // TODO: Allocation error
 
 pub trait ElementStorage {
-    type Handle<T: ?Sized + Pointee>: Clone + Copy;
+    type Handle<T: ?Sized /*+ Pointee*/>: Clone + Copy;
 
     unsafe fn deallocate<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>);
     unsafe fn get<T: ?Sized + Pointee>(&self, handle: Self::Handle<T>) -> NonNull<T>;

@@ -5,15 +5,16 @@ use core::fmt;
 
 use crate::traits::{ElementStorage, Result, SingleElementStorage};
 use crate::utils;
+use std::cell::UnsafeCell;
 
 pub struct SingleElement<S> {
-    storage: MaybeUninit<S>,
+    storage: UnsafeCell<MaybeUninit<S>>,
 }
 
 impl<S> SingleElement<S> {
     pub fn new() -> SingleElement<S> {
         SingleElement {
-            storage: MaybeUninit::uninit(),
+            storage: UnsafeCell::new(MaybeUninit::uninit()),
         }
     }
 }
@@ -24,7 +25,7 @@ impl<S> ElementStorage for SingleElement<S> {
     unsafe fn deallocate<T: ?Sized + Pointee>(&mut self, _handle: Self::Handle<T>) {}
 
     unsafe fn get<T: ?Sized + Pointee>(&self, handle: Self::Handle<T>) -> NonNull<T> {
-        let ptr: NonNull<()> = NonNull::from(&self.storage).cast();
+        let ptr: NonNull<()> = NonNull::new(self.storage.get()).unwrap().cast();
         NonNull::from_raw_parts(ptr, handle.0)
     }
 
@@ -79,8 +80,6 @@ mod tests {
 
     #[test]
     fn test_box() {
-
-
         let b = Box::<_, SingleElement<[usize; 4]>>::new([1, 2, 3, 4]);
         let b = b.coerce::<[i32]>();
         println!("{:?}", b)
