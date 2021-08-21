@@ -13,6 +13,10 @@ pub(crate) fn validate_layout<T: ?Sized + Pointee, S>(meta: T::Metadata) -> Resu
     validate_layout_for::<S>(layout_of::<T>(meta))
 }
 
+pub(crate) fn validate_array_layout<T, S>(capacity: usize) -> Result<()> {
+    validate_layout_for::<S>(Layout::array::<T>(capacity).map_err(|_| ())?)
+}
+
 pub(crate) fn validate_layout_for<S>(layout: Layout) -> Result<()> {
     let validated_size = layout.size() <= mem::size_of::<S>();
     let validated_layout = layout.align() <= mem::align_of::<S>();

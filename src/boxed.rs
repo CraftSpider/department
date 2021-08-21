@@ -1,11 +1,11 @@
+use core::alloc::Layout;
 use core::borrow::{Borrow, BorrowMut};
 use core::cmp::Ordering;
-use core::alloc::Layout;
-use core::{fmt, mem, ptr};
 use core::marker::Unsize;
 use core::mem::ManuallyDrop;
-use core::ops::{Deref, DerefMut, CoerceUnsized};
+use core::ops::{CoerceUnsized, Deref, DerefMut};
 use core::ptr::Pointee;
+use core::{fmt, mem, ptr};
 
 use crate::traits::SingleElementStorage;
 
@@ -81,9 +81,15 @@ where
 
         let new_ptr = unsafe { new_storage.get(new_handle).to_raw_parts().0 };
 
-        unsafe { ptr::copy_nonoverlapping(old_ptr.as_ptr() as *const u8, new_ptr.as_ptr() as *mut u8, layout.size()) };
+        unsafe {
+            ptr::copy_nonoverlapping(
+                old_ptr.as_ptr() as *const u8,
+                new_ptr.as_ptr() as *mut u8,
+                layout.size(),
+            )
+        };
 
-        unsafe { self.storage.deallocate(self.handle) };
+        unsafe { self.storage.deallocate_single(self.handle) };
 
         unsafe { ManuallyDrop::drop(&mut self.storage) };
         mem::forget(self);
@@ -96,13 +102,16 @@ where
 
     pub fn coerce<U: ?Sized>(mut self) -> Box<U, S>
     where
-        T: Unsize<U>
+        T: Unsize<U>,
     {
         let handle = unsafe { self.storage.coerce::<_, U>(self.handle) };
         let storage = unsafe { ManuallyDrop::take(&mut self.storage) };
         // Don't run drop for the stolen value
         mem::forget(self);
-        Box { handle, storage: ManuallyDrop::new(storage) }
+        Box {
+            handle,
+            storage: ManuallyDrop::new(storage),
+        }
     }
 }
 
@@ -132,7 +141,8 @@ where
     U: ?Sized + Pointee,
     S: SingleElementStorage,
     S::Handle<T>: CoerceUnsized<S::Handle<U>>,
-{}
+{
+}
 
 impl<T, S> AsRef<T> for Box<T, S>
 where
@@ -205,7 +215,7 @@ where
 {
     fn drop(&mut self) {
         // SAFETY: Handle is guaranteed valid
-        unsafe { self.storage.drop(self.handle) };
+        unsafe { self.storage.drop_single(self.handle) };
         // SAFETY: Storage is guaranteed valid
         unsafe { ManuallyDrop::drop(&mut self.storage) };
     }
@@ -271,7 +281,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::inline::SingleElement;
 
     type Box<T> = super::Box<T, SingleElement<[usize; 4]>>;
@@ -291,12 +300,14 @@ mod tests {
     #[test]
     fn test_try_in() {
         let b = Box::new([1, 2]);
-        let b2 = b.try_in::<SingleElement<[usize; 2]>>(SingleElement::new())
+        let b2 = b
+            .try_in::<SingleElement<[usize; 2]>>(SingleElement::new())
             .unwrap();
 
         assert_eq!(*b2, [1, 2]);
 
-        let b3 = b2.try_in::<SingleElement<[u32; 1]>>(SingleElement::new())
+        let b3 = b2
+            .try_in::<SingleElement<[u32; 1]>>(SingleElement::new())
             .unwrap_err();
 
         assert_eq!(*b3.0, [1, 2]);

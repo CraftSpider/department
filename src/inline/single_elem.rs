@@ -1,7 +1,7 @@
+use core::fmt;
 use core::marker::Unsize;
 use core::mem::MaybeUninit;
 use core::ptr::{NonNull, Pointee};
-use core::fmt;
 
 use crate::traits::{ElementStorage, Result, SingleElementStorage};
 use crate::utils;
@@ -21,8 +21,6 @@ impl<S> SingleElement<S> {
 
 impl<S> ElementStorage for SingleElement<S> {
     type Handle<T: ?Sized + Pointee> = SingleElementHandle<T>;
-
-    unsafe fn deallocate<T: ?Sized + Pointee>(&mut self, _handle: Self::Handle<T>) {}
 
     unsafe fn get<T: ?Sized + Pointee>(&self, handle: Self::Handle<T>) -> NonNull<T> {
         let ptr: NonNull<()> = NonNull::new(self.storage.get()).unwrap().cast();
@@ -47,12 +45,13 @@ impl<S> SingleElementStorage for SingleElement<S> {
         utils::validate_layout::<T, S>(meta)?;
         Ok(SingleElementHandle(meta))
     }
+
+    unsafe fn deallocate_single<T: ?Sized + Pointee>(&mut self, _handle: Self::Handle<T>) {}
 }
 
 impl<S> fmt::Debug for SingleElement<S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("SingleElement")
-            .finish_non_exhaustive()
+        f.debug_struct("SingleElement").finish_non_exhaustive()
     }
 }
 
