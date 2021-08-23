@@ -83,8 +83,8 @@ where
 
         unsafe {
             ptr::copy_nonoverlapping(
-                old_ptr.as_ptr() as *const u8,
-                new_ptr.as_ptr() as *mut u8,
+                old_ptr.as_ptr().cast::<u8>(),
+                new_ptr.as_ptr().cast::<u8>(),
                 layout.size(),
             )
         };

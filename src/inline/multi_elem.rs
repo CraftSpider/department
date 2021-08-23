@@ -4,6 +4,7 @@ use core::marker::Unsize;
 use core::mem::MaybeUninit;
 use core::ptr::{NonNull, Pointee};
 
+use crate::error::StorageError;
 use crate::traits::{ElementStorage, MultiElementStorage};
 use crate::utils;
 
@@ -53,7 +54,10 @@ impl<S, const N: usize> MultiElementStorage for MultiElement<S, N> {
         utils::validate_layout::<T, S>(meta)?;
 
         // Find first unused storage
-        let pos = self.used.iter().position(|i| !*i).ok_or(())?;
+        let pos = self.used
+            .iter()
+            .position(|i| !*i)
+            .ok_or(StorageError::NoSlots)?;
 
         self.used[pos] = true;
 
@@ -66,8 +70,15 @@ impl<S, const N: usize> MultiElementStorage for MultiElement<S, N> {
 }
 
 impl<S, const N: usize> fmt::Debug for MultiElement<S, N> {
-    fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt.debug_struct("MultiElement").finish_non_exhaustive()
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("MultiElement").finish_non_exhaustive()
+    }
+}
+
+impl<S, const N: usize> Clone for MultiElement<S, N> {
+    fn clone(&self) -> Self {
+        // 'cloning' doesn't preserve handles, it just gives you a new storage
+        MultiElement::new()
     }
 }
 

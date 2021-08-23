@@ -1,3 +1,4 @@
+use core::cell::UnsafeCell;
 use core::fmt;
 use core::marker::Unsize;
 use core::mem::MaybeUninit;
@@ -5,7 +6,6 @@ use core::ptr::{NonNull, Pointee};
 
 use crate::traits::{ElementStorage, Result, SingleElementStorage};
 use crate::utils;
-use std::cell::UnsafeCell;
 
 pub struct SingleElement<S> {
     storage: UnsafeCell<MaybeUninit<S>>,
@@ -55,6 +55,13 @@ impl<S> fmt::Debug for SingleElement<S> {
     }
 }
 
+impl<S> Clone for SingleElement<S> {
+    fn clone(&self) -> Self {
+        // 'cloning' doesn't preserve handles, it just gives you a new storage
+        SingleElement::new()
+    }
+}
+
 impl<S> Default for SingleElement<S> {
     fn default() -> SingleElement<S> {
         SingleElement::new()
@@ -81,6 +88,7 @@ mod tests {
     fn test_box() {
         let b = Box::<_, SingleElement<[usize; 4]>>::new([1, 2, 3, 4]);
         let b = b.coerce::<[i32]>();
-        println!("{:?}", b)
+
+        assert_eq!(&*b, &[1, 2, 3, 4]);
     }
 }

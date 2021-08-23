@@ -1,11 +1,11 @@
 use core::cell::UnsafeCell;
 use core::marker::PhantomData;
-use core::mem;
 use core::mem::MaybeUninit;
 use core::ptr::NonNull;
+use core::{fmt, mem};
 
-use crate::utils;
 use crate::traits::{RangeStorage, SingleRangeStorage};
+use crate::utils;
 
 pub struct SingleRange<S, const N: usize> {
     storage: UnsafeCell<[MaybeUninit<S>; N]>,
@@ -43,6 +43,19 @@ impl<S, const N: usize> SingleRangeStorage for SingleRange<S, N> {
     }
 
     unsafe fn deallocate_single<T>(&mut self, _handle: Self::Handle<T>) {}
+}
+
+impl<S, const N: usize> fmt::Debug for SingleRange<S, N> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SingleRange").finish_non_exhaustive()
+    }
+}
+
+impl<S, const N: usize> Clone for SingleRange<S, N> {
+    fn clone(&self) -> Self {
+        // 'cloning' doesn't preserve handles, it just gives you a new storage
+        SingleRange::new()
+    }
 }
 
 impl<S, const N: usize> Default for SingleRange<S, N> {

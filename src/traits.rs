@@ -1,9 +1,11 @@
+use core::{array, ptr};
 use core::marker::Unsize;
 use core::mem::MaybeUninit;
 use core::ptr::{NonNull, Pointee};
-use core::{array, ptr};
 
-pub type Result<T> = core::result::Result<T, ()>; // TODO: Allocation error
+use crate::error::StorageError;
+
+pub type Result<T> = core::result::Result<T, StorageError>; // TODO: Allocation error
 
 pub trait ElementStorage {
     type Handle<T: ?Sized /*+ Pointee*/>: Clone + Copy;
@@ -92,7 +94,7 @@ pub trait RangeStorage {
         handle: Self::Handle<T>,
         capacity: usize,
     ) -> Result<Self::Handle<T>> {
-        Err(())
+        Err(StorageError::Unimplemented)
     }
 
     #[allow(unused_variables)]
@@ -101,7 +103,7 @@ pub trait RangeStorage {
         handle: Self::Handle<T>,
         capacity: usize,
     ) -> Result<Self::Handle<T>> {
-        Err(())
+        Err(StorageError::Unimplemented)
     }
 }
 

@@ -5,8 +5,27 @@
 #![feature(coerce_unsized)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "alloc", feature(allocator_api))]
-#![cfg(feature = "alloc")]
-extern crate alloc as core_alloc;
+
+#![warn(
+    // missing_docs,
+    elided_lifetimes_in_paths,
+    explicit_outlives_requirements,
+    missing_abi,
+    noop_method_call,
+    pointer_structural_match,
+    semicolon_in_expressions_from_macros,
+    unused_import_braces,
+    unused_lifetimes,
+    clippy::cargo,
+    clippy::missing_panics_doc,
+    clippy::doc_markdown,
+    clippy::ptr_as_ptr,
+    clippy::cloned_instead_of_copied,
+    clippy::unreadable_literal
+)]
+
+#[cfg(feature = "alloc")]
+extern crate alloc as rs_alloc;
 
 mod utils;
 
@@ -17,4 +36,6 @@ pub mod collections;
 
 #[cfg(feature = "alloc")]
 pub mod alloc;
+pub mod statics;
 pub mod inline;
+mod error;

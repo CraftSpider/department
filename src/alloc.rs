@@ -2,16 +2,18 @@ use core::alloc::{Allocator, Layout};
 use core::marker::Unsize;
 use core::mem::MaybeUninit;
 use core::ptr::{NonNull, Pointee};
-use core_alloc::alloc::Global;
+use rs_alloc::alloc::Global;
 
+use crate::error::StorageError;
 use crate::traits::{
     ElementStorage, MultiElementStorage, MultiRangeStorage, RangeStorage, SingleElementStorage,
-    SingleRangeStorage,
+    SingleRangeStorage
 };
 use crate::utils;
 
 pub type GlobalAlloc = Alloc<Global>;
 
+#[derive(Copy, Clone)]
 pub struct Alloc<A: Allocator>(A);
 
 impl<A: Allocator> Alloc<A> {
@@ -52,10 +54,12 @@ impl<A: Allocator> SingleElementStorage for Alloc<A> {
         &mut self,
         meta: T::Metadata,
     ) -> crate::traits::Result<Self::Handle<T>> {
+        let layout = utils::layout_of::<T>(meta);
+
         let allocated: NonNull<()> = self
             .0
-            .allocate(utils::layout_of::<T>(meta))
-            .map_err(|_| ())?
+            .allocate(layout)
+            .map_err(|_| StorageError::InsufficientSpace(layout.size(), None))?
             .cast();
 
         Ok(NonNull::from_raw_parts(allocated, meta))
@@ -72,10 +76,12 @@ impl<A: Allocator> MultiElementStorage for Alloc<A> {
         &mut self,
         meta: T::Metadata,
     ) -> crate::traits::Result<Self::Handle<T>> {
+        let layout = utils::layout_of::<T>(meta);
+
         let allocated: NonNull<()> = self
             .0
-            .allocate(utils::layout_of::<T>(meta))
-            .map_err(|_| ())?
+            .allocate(layout)
+            .map_err(|_| StorageError::InsufficientSpace(layout.size(), None))?
             .cast();
 
         Ok(NonNull::from_raw_parts(allocated, meta))
@@ -106,12 +112,13 @@ impl<A: Allocator> RangeStorage for Alloc<A> {
         let old_len = handle.as_ref().len();
 
         let old_layout = Layout::array::<T>(old_len).expect("Valid handle");
-        let new_layout = Layout::array::<T>(capacity).map_err(|_| ())?;
+        let new_layout = Layout::array::<T>(capacity).map_err(|_| StorageError::exceeds_max())?;
 
         let new_ptr = self
             .0
             .grow(handle.cast(), old_layout, new_layout)
-            .map_err(|_| ())?;
+            // This may actually be unimplemented or other, but we're making an educated guess
+            .map_err(|_| StorageError::InsufficientSpace(new_layout.size(), None))?;
 
         Ok(NonNull::from_raw_parts(new_ptr.cast(), capacity))
     }
@@ -124,12 +131,13 @@ impl<A: Allocator> RangeStorage for Alloc<A> {
         let old_len = handle.as_ref().len();
 
         let old_layout = Layout::array::<T>(old_len).expect("Valid handle");
-        let new_layout = Layout::array::<T>(capacity).map_err(|_| ())?;
+        let new_layout = Layout::array::<T>(capacity).map_err(|_| StorageError::exceeds_max())?;
 
         let new_ptr = self
             .0
             .shrink(handle.cast(), old_layout, new_layout)
-            .map_err(|_| ())?;
+            // Shrinking should... probably only fail if it's not a thing?
+            .map_err(|_| StorageError::Unimplemented)?;
 
         Ok(NonNull::from_raw_parts(new_ptr.cast(), capacity))
     }
@@ -137,8 +145,10 @@ impl<A: Allocator> RangeStorage for Alloc<A> {
 
 impl<A: Allocator> SingleRangeStorage for Alloc<A> {
     fn allocate_single<T>(&mut self, capacity: usize) -> crate::traits::Result<Self::Handle<T>> {
-        let layout = Layout::array::<T>(capacity).map_err(|_| ())?;
-        let pointer = self.0.allocate(layout).map_err(|_| ())?;
+        let layout = Layout::array::<T>(capacity).map_err(|_| StorageError::exceeds_max())?;
+        let pointer = self.0
+            .allocate(layout)
+            .map_err(|_| StorageError::InsufficientSpace(layout.size(), None))?;
         Ok(NonNull::from_raw_parts(pointer.cast(), capacity))
     }
 
@@ -154,8 +164,10 @@ impl<A: Allocator> SingleRangeStorage for Alloc<A> {
 
 impl<A: Allocator> MultiRangeStorage for Alloc<A> {
     fn allocate<T>(&mut self, capacity: usize) -> crate::traits::Result<Self::Handle<T>> {
-        let layout = Layout::array::<T>(capacity).map_err(|_| ())?;
-        let pointer = self.0.allocate(layout).map_err(|_| ())?;
+        let layout = Layout::array::<T>(capacity).map_err(|_| StorageError::exceeds_max())?;
+        let pointer = self.0
+            .allocate(layout)
+            .map_err(|_| StorageError::InsufficientSpace(layout.size(), None))?;
         Ok(NonNull::from_raw_parts(pointer.cast(), capacity))
     }
 
@@ -171,13 +183,27 @@ impl<A: Allocator> MultiRangeStorage for Alloc<A> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::boxed::Box;
+    use crate::collections::Vec;
+
+    use super::*;
 
     #[test]
     fn test_box() {
         let b = Box::<_, Alloc<Global>>::new([1, 2, 3, 4]);
         let b = b.coerce::<[i32]>();
-        println!("{:?}", b)
+
+        assert_eq!(&*b, &[1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn test_vec() {
+        let mut v = Vec::<_, Alloc<Global>>::new();
+        v.push(1);
+        v.push(2);
+        v.push(3);
+        v.push(4);
+
+        assert_eq!(&*v, &[1, 2, 3, 4]);
     }
 }
