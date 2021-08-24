@@ -15,11 +15,10 @@ pub struct MultiRange<S, const N: usize, const M: usize> {
 
 impl<S, const N: usize, const M: usize> MultiRange<S, N, M> {
     pub fn new() -> MultiRange<S, N, M> {
-        // SAFETY: This is okay because the whole array is also MaybeUninit
         let mut storage: MaybeUninit<[_; M]> = MaybeUninit::uninit();
         for i in 0..M {
             unsafe {
-                (*storage.as_mut_ptr())[i] = UnsafeCell::new(MaybeUninit::uninit().assume_init())
+                (*storage.as_mut_ptr())[i] = UnsafeCell::new(MaybeUninit::uninit_array::<N>())
             };
         }
         let storage = unsafe { storage.assume_init() };

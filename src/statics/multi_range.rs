@@ -1,3 +1,5 @@
 
+use super::StorageCell;
+
 // TODO
-pub struct MultiRange;
+pub struct MultiRange<S: 'static>(&'static StorageCell<S>);

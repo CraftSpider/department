@@ -11,3 +11,4 @@ std = ["alloc"]
 alloc = []
 
 [dependencies]
+spin = "0.9"

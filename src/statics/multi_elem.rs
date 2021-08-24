@@ -1,3 +1,5 @@
 
+use super::StorageCell;
+
 // TODO
-pub struct MultiElement;
+pub struct MultiElement<S: 'static>(&'static StorageCell<S>);

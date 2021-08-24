@@ -23,7 +23,7 @@ where
         let mut storage = S::default();
 
         Vec {
-            handle: storage.allocate_single(0).unwrap_or_else(|_| panic!()),
+            handle: storage.allocate_single(0).unwrap(),
             len: 0,
             storage,
         }
@@ -46,7 +46,7 @@ where
 {
     pub fn new_in(mut storage: S) -> Vec<T, S> {
         Vec {
-            handle: storage.allocate_single(0).unwrap_or_else(|_| panic!()),
+            handle: storage.allocate_single(0).unwrap(),
             len: 0,
             storage,
         }

@@ -13,10 +13,8 @@ pub struct SingleRange<S, const N: usize> {
 
 impl<S, const N: usize> SingleRange<S, N> {
     pub fn new() -> SingleRange<S, N> {
-        // SAFETY: This is okay because the whole array is also MaybeUninit
-        let storage: [_; N] = unsafe { MaybeUninit::uninit().assume_init() };
         SingleRange {
-            storage: UnsafeCell::new(storage),
+            storage: UnsafeCell::new(MaybeUninit::uninit_array::<N>()),
         }
     }
 }

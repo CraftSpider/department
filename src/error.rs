@@ -1,11 +1,12 @@
-use std::fmt;
+use core::fmt;
 
 #[derive(Debug)]
 pub enum StorageError {
     InsufficientSpace(usize, Option<usize>),
     InvalidAlign(usize, usize),
-    /// Only emit by multi-item storages, indicates the maximum number of items have been allocated
-    /// at once. *Sometimes* freeing existing items can fix this.
+    /// Only emitted by multi-item storages (Note that this may be returned from a single-item
+    /// implementation if the backing is multi-item), indicates the maximum number of items have
+    /// been allocated at once. *Sometimes* freeing existing items can fix this.
     NoSlots,
     Unimplemented,
 }

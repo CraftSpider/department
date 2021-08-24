@@ -3,6 +3,8 @@
 #![feature(ptr_metadata)]
 #![feature(layout_for_ptr)]
 #![feature(coerce_unsized)]
+#![feature(cfg_target_has_atomic)]
+#![feature(maybe_uninit_uninit_array)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "alloc", feature(allocator_api))]
 
@@ -36,6 +38,7 @@ pub mod collections;
 
 #[cfg(feature = "alloc")]
 pub mod alloc;
+#[cfg(target_has_atomic = "8")]
 pub mod statics;
 pub mod inline;
 mod error;

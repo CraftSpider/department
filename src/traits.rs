@@ -24,20 +24,21 @@ pub trait SingleElementStorage: ElementStorage {
     ) -> Result<Self::Handle<T>>;
     unsafe fn deallocate_single<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>);
 
-    fn create_single<T: Pointee>(&mut self, value: T) -> core::result::Result<Self::Handle<T>, T> {
+    fn create_single<T: Pointee>(&mut self, value: T) -> core::result::Result<Self::Handle<T>, (StorageError, T)> {
         let meta = NonNull::from(&value).to_raw_parts().1;
 
-        if let Ok(handle) = self.allocate_single(meta) {
-            //  SAFETY: `handle` is valid.
-            let pointer = unsafe { self.get(handle) };
+        let handle = match self.allocate_single(meta) {
+            Ok(handle) => handle,
+            Err(e) => return Err((e, value)),
+        };
 
-            //  SAFETY: `pointer` points to a suitable memory area for `T`.
-            unsafe { ptr::write(pointer.as_ptr(), value) };
+        //  SAFETY: `handle` is valid.
+        let pointer = unsafe { self.get(handle) };
 
-            Ok(handle)
-        } else {
-            Err(value)
-        }
+        //  SAFETY: `pointer` points to a suitable memory area for `T`.
+        unsafe { ptr::write(pointer.as_ptr(), value) };
+
+        Ok(handle)
     }
 
     unsafe fn drop_single<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>) {
@@ -114,20 +115,21 @@ pub trait SingleRangeStorage: RangeStorage {
     fn create_single<T, const N: usize>(
         &mut self,
         arr: [T; N],
-    ) -> core::result::Result<Self::Handle<T>, [T; N]> {
-        if let Ok(handle) = self.allocate_single(N) {
-            // SAFETY: `handle` is valid.
-            let mut pointer: NonNull<[MaybeUninit<T>]> = unsafe { self.get(handle) };
+    ) -> core::result::Result<Self::Handle<T>, (StorageError, [T; N])> {
+        let handle = match self.allocate_single(N) {
+            Ok(handle) => handle,
+            Err(e) => return Err((e, arr)),
+        };
 
-            // SAFETY: `pointer` points to a suitable memory area for `T`.
-            for (idx, val) in array::IntoIter::new(arr).enumerate() {
-                unsafe { pointer.as_mut()[idx].write(val) };
-            }
+        // SAFETY: `handle` is valid.
+        let mut pointer: NonNull<[MaybeUninit<T>]> = unsafe { self.get(handle) };
 
-            Ok(handle)
-        } else {
-            Err(arr)
+        // SAFETY: `pointer` points to a suitable memory area for `T`.
+        for (idx, val) in array::IntoIter::new(arr).enumerate() {
+            unsafe { pointer.as_mut()[idx].write(val) };
         }
+
+        Ok(handle)
     }
 }
 pub trait MultiRangeStorage: RangeStorage {

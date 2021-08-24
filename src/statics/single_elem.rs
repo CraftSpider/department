@@ -4,39 +4,15 @@ use core::marker::Unsize;
 use core::fmt;
 
 use super::StorageCell;
+use super::traits::StaticStorage;
 use crate::utils;
 use crate::traits::{SingleElementStorage, ElementStorage};
 
-enum SingleElementInner<S: 'static> {
-    Mut(*mut S),
-    Cell(&'static StorageCell<S>)
-}
+pub struct SingleElement<S: 'static>(&'static StorageCell<S>);
 
-impl<S: 'static> SingleElementInner<S> {
-    fn as_ptr(&self) -> *mut S {
-        match self {
-            Self::Mut(s) => *s,
-            Self::Cell(s) => unsafe { s.get() },
-        }
-    }
-}
-
-pub struct SingleElement<S: 'static>(SingleElementInner<S>);
-
-impl<S: 'static> SingleElement<S> {
-    /// Creates a new single-element storage, backed by a mutable static reference.
-    pub fn new_mut(storage: &'static mut S) -> SingleElement<S> {
-        SingleElement(SingleElementInner::Mut(storage))
-    }
-
-    /// Create a new single-element storage, backed by a static reference.
-    ///
-    /// # Safety
-    ///
-    /// This type expects unique ownership of the passed reference.
-    pub fn new_cell(storage: &'static StorageCell<S>) -> SingleElement<S> {
-        storage.claim();
-        SingleElement(SingleElementInner::Cell(storage))
+impl<S: 'static> StaticStorage<S> for SingleElement<S> {
+    fn take_cell(storage: &'static StorageCell<S>) -> SingleElement<S> {
+        SingleElement(storage)
     }
 }
 
@@ -73,6 +49,12 @@ impl<S> fmt::Debug for SingleElement<S> {
     }
 }
 
+impl<S> Drop for SingleElement<S> {
+    fn drop(&mut self) {
+        self.0.release()
+    }
+}
+
 pub struct SingleElementHandle<T: ?Sized + Pointee>(T::Metadata);
 
 impl<T: ?Sized + Pointee> Clone for SingleElementHandle<T> {
@@ -88,13 +70,41 @@ mod tests {
     use super::*;
     use crate::boxed::Box;
 
+    use core::time::Duration;
+
     #[test]
     fn test_box() {
         static FOO: StorageCell<[usize; 4]> = StorageCell::new([0; 4]);
 
-        let b = Box::<_, SingleElement<[usize; 4]>>::new_in([1, 2], SingleElement::new_cell(&FOO));
+        let b = Box::<_, SingleElement<[usize; 4]>>::new_in([1, 2], FOO.claim());
         let b = b.coerce::<[i32]>();
 
         assert_eq!(&*b, &[1, 2]);
+    }
+
+    #[test]
+    #[ignore = "This test is for human-readable output, and does not actually panic"]
+    fn test_atomic() {
+
+        static FOO: StorageCell<[usize; 4]> = StorageCell::new([0; 4]);
+
+        let mut handles = Vec::new();
+        for i in 0..100 {
+            handles.push(std::thread::spawn(move || {
+                let storage = FOO.try_claim::<SingleElement<_>>();
+                if storage.is_some() {
+                    println!("Thread {} claimed storage", i);
+                    std::thread::sleep(Duration::from_millis(1));
+                } else {
+                    println!("Thread {} couldn't claim storage", i);
+                }
+                core::mem::drop(storage);
+                println!("Thread {} released storage", i);
+            }));
+        }
+
+        handles
+            .into_iter()
+            .for_each(|handle| handle.join().unwrap())
     }
 }
