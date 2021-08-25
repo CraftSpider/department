@@ -93,7 +93,7 @@ where
     pub fn push(&mut self, val: T) {
         let old_capacity = self.capacity();
 
-        if self.len + 1 >= old_capacity {
+        if self.len + 1 > old_capacity {
             let new_capacity = if old_capacity == 0 {
                 2
             } else {

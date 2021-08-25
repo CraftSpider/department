@@ -17,6 +17,10 @@ fn blocks<S>(size: usize) -> usize {
     (size + 3) / mem::size_of::<S>()
 }
 
+fn blocks_for<S, T>(capacity: usize) -> usize {
+    (mem::size_of::<T>() * capacity + 3) / mem::size_of::<S>()
+}
+
 pub struct StaticHeap<S, const N: usize> {
     used: spin::Mutex<[bool; N]>,
     storage: UnsafeCell<[MaybeUninit<S>; N]>,
@@ -30,7 +34,7 @@ impl<S, const N: usize> StaticHeap<S, N> {
         }
     }
 
-    fn try_lock(&self, size: usize) -> Result<usize> {
+    fn find_lock(&self, size: usize) -> Result<usize> {
         let mut used = self.used.lock();
         let open = self.find_open(&used, size)?;
         let start = open.start;
@@ -41,9 +45,11 @@ impl<S, const N: usize> StaticHeap<S, N> {
     }
 
     fn unlock(&self, start: usize, size: usize) {
-        for i in &mut self.used.lock()[start..(start + blocks::<S>(size))] {
-            *i = false
-        }
+        self.used
+            .lock()
+            [start..(start + blocks::<S>(size))]
+            .iter_mut()
+            .for_each(|i| *i = false);
     }
 
     fn find_open(
@@ -51,7 +57,10 @@ impl<S, const N: usize> StaticHeap<S, N> {
         lock: &spin::MutexGuard<'_, [bool; N]>,
         size: usize,
     ) -> Result<Range<usize>> {
-        if blocks::<S>(size) > N {
+        if blocks::<S>(size) == 0 {
+            return Ok(0..0);
+        }
+        if blocks::<S>(size) >= N {
             return Err(StorageError::InsufficientSpace(
                 size,
                 Some(mem::size_of::<S>() * N),
@@ -68,7 +77,7 @@ impl<S, const N: usize> StaticHeap<S, N> {
                 Some(*n)
             })
             .position(|n| n >= blocks::<S>(size))
-            .map(|n| (n - (usize::max(blocks::<S>(size), 1) - 1)))
+            .map(|n| (n - (blocks::<S>(size) - 1)))
             .map(|start| start..(start + blocks::<S>(size)))
             .ok_or(StorageError::NoSlots)
     }
@@ -103,22 +112,34 @@ impl<S, const N: usize> StaticHeap<S, N> {
         new_layout: Layout,
     ) -> Option<usize> {
         let mut lock = self.used.lock();
+        let old_range = handle.0..(handle.0 + blocks_for::<S, T>(handle.1));
 
-        lock[handle.0..(handle.0 + handle.1)]
-            .iter_mut()
-            .for_each(|i| *i = false);
+        if handle.1 != 0 {
+            lock[old_range.clone()]
+                .iter_mut()
+                .for_each(|i| *i = false);
+        }
 
         let new_range = match self.find_open(&lock, new_layout.size()) {
             Ok(open) => open,
             Err(_) => {
-                lock[handle.0..(handle.0 + handle.1)]
-                    .iter_mut()
-                    .for_each(|i| *i = true);
+                if handle.1 != 0 {
+                    lock[old_range]
+                        .iter_mut()
+                        .for_each(|i| *i = true);
+                }
                 return None;
             }
         };
 
-        Some(new_range.start)
+        let new_start = new_range.start;
+        lock[new_range]
+            .iter_mut()
+            .for_each(|i| *i = true);
+
+        utils::move_within(unsafe { &mut *self.storage.get() }, old_range, new_start);
+
+        Some(new_start)
     }
 }
 
@@ -159,7 +180,7 @@ impl<S, const N: usize> MultiElementStorage for &StaticHeap<S, N> {
     fn allocate<T: ?Sized + Pointee>(&mut self, meta: T::Metadata) -> Result<Self::Handle<T>> {
         let layout = utils::layout_of::<T>(meta);
         utils::validate_layout_for::<[S; N]>(layout)?;
-        let start = self.try_lock(layout.size())?;
+        let start = self.find_lock(layout.size())?;
         Ok(HeapHandle(start, meta))
     }
 
@@ -170,6 +191,7 @@ impl<S, const N: usize> MultiElementStorage for &StaticHeap<S, N> {
 }
 
 impl<S, const N: usize> RangeStorage for &StaticHeap<S, N> {
+    // Handle::1 is the capacity *in terms of T*
     type Handle<T> = HeapHandle<[T]>;
 
     fn maximum_capacity<T>(&self) -> usize {
@@ -233,7 +255,7 @@ impl<S, const N: usize> MultiRangeStorage for &StaticHeap<S, N> {
     fn allocate<T>(&mut self, capacity: usize) -> Result<Self::Handle<T>> {
         let layout = Layout::array::<T>(capacity).map_err(|_| StorageError::exceeds_max())?;
         utils::validate_layout_for::<[S; N]>(layout)?;
-        let start = self.try_lock(layout.size())?;
+        let start = self.find_lock(layout.size())?;
         Ok(HeapHandle(start, capacity))
     }
 
@@ -311,7 +333,9 @@ mod tests {
         v3.extend([5, 6]);
         v4.extend([7, 8]);
 
-        assert_eq!(&*v1, &[1, 2]);
+        v1.extend([9, 10, 11, 12, 13, 14, 15, 16]);
+
+        assert_eq!(&*v1, &[1, 2, 9, 10, 11, 12, 13, 14, 15, 16]);
         assert_eq!(&*v2, &[3, 4]);
         assert_eq!(&*v3, &[5, 6]);
         assert_eq!(&*v4, &[7, 8]);
