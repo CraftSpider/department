@@ -4,7 +4,8 @@ use core::marker::Unsize;
 use core::mem::MaybeUninit;
 use core::ptr::{NonNull, Pointee};
 
-use crate::traits::{ElementStorage, Result, SingleElementStorage};
+use crate::error::Result;
+use crate::traits::{ElementStorage, SingleElementStorage};
 use crate::utils;
 
 pub struct SingleElement<S> {
@@ -81,8 +82,9 @@ impl<T: ?Sized + Pointee> Copy for SingleElementHandle<T> {}
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::boxed::Box;
+
+    use super::*;
 
     #[test]
     fn test_box() {

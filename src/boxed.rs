@@ -23,7 +23,9 @@ where
     pub fn new(val: T) -> Box<T, S> {
         let mut storage = S::default();
         Box {
-            handle: storage.create_single(val).unwrap_or_else(|(e, _)| panic!("{}", e)),
+            handle: storage
+                .create_single(val)
+                .unwrap_or_else(|(e, _)| panic!("{}", e)),
             storage: ManuallyDrop::new(storage),
         }
     }
@@ -44,7 +46,9 @@ where
 {
     pub fn new_in(val: T, mut storage: S) -> Box<T, S> {
         Box {
-            handle: storage.create_single(val).unwrap_or_else(|(e, _)| panic!("{}", e)),
+            handle: storage
+                .create_single(val)
+                .unwrap_or_else(|(e, _)| panic!("{}", e)),
             storage: ManuallyDrop::new(storage),
         }
     }

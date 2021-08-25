@@ -1,12 +1,11 @@
-
-use core::ptr::{Pointee, NonNull};
-use core::marker::Unsize;
 use core::fmt;
+use core::marker::Unsize;
+use core::ptr::{NonNull, Pointee};
 
-use super::StorageCell;
 use super::traits::StaticStorage;
+use super::StorageCell;
+use crate::traits::{ElementStorage, SingleElementStorage};
 use crate::utils;
-use crate::traits::{SingleElementStorage, ElementStorage};
 
 pub struct SingleElement<S: 'static>(&'static StorageCell<S>);
 
@@ -26,7 +25,7 @@ impl<S> ElementStorage for SingleElement<S> {
 
     unsafe fn coerce<T: ?Sized + Pointee + Unsize<U>, U: ?Sized + Pointee>(
         &self,
-        handle: Self::Handle<T>
+        handle: Self::Handle<T>,
     ) -> Self::Handle<U> {
         let element = self.get(handle);
         let meta = (element.as_ptr() as *mut U).to_raw_parts().1;
@@ -35,7 +34,10 @@ impl<S> ElementStorage for SingleElement<S> {
 }
 
 impl<S> SingleElementStorage for SingleElement<S> {
-    fn allocate_single<T: ?Sized + Pointee>(&mut self, meta: T::Metadata) -> crate::traits::Result<Self::Handle<T>> {
+    fn allocate_single<T: ?Sized + Pointee>(
+        &mut self,
+        meta: T::Metadata,
+    ) -> crate::error::Result<Self::Handle<T>> {
         utils::validate_layout::<T, S>(meta)?;
         Ok(SingleElementHandle(meta))
     }
@@ -85,7 +87,6 @@ mod tests {
     #[test]
     #[ignore = "This test is for human-readable output, and does not actually panic"]
     fn test_atomic() {
-
         static FOO: StorageCell<[usize; 4]> = StorageCell::new([0; 4]);
 
         let mut handles = Vec::new();

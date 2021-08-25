@@ -3,9 +3,10 @@ use core::marker::Unsize;
 use core::mem::MaybeUninit;
 use core::ptr::{NonNull, Pointee};
 
+use crate::error;
 use crate::error::StorageError;
 
-pub type Result<T> = core::result::Result<T, StorageError>; // TODO: Allocation error
+// TODO: Allocation error
 
 pub trait ElementStorage {
     type Handle<T: ?Sized /*+ Pointee*/>: Clone + Copy;
@@ -21,10 +22,13 @@ pub trait SingleElementStorage: ElementStorage {
     fn allocate_single<T: ?Sized + Pointee>(
         &mut self,
         meta: T::Metadata,
-    ) -> Result<Self::Handle<T>>;
+    ) -> error::Result<Self::Handle<T>>;
     unsafe fn deallocate_single<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>);
 
-    fn create_single<T: Pointee>(&mut self, value: T) -> core::result::Result<Self::Handle<T>, (StorageError, T)> {
+    fn create_single<T: Pointee>(
+        &mut self,
+        value: T,
+    ) -> core::result::Result<Self::Handle<T>, (StorageError, T)> {
         let meta = NonNull::from(&value).to_raw_parts().1;
 
         let handle = match self.allocate_single(meta) {
@@ -53,7 +57,7 @@ pub trait SingleElementStorage: ElementStorage {
 }
 
 pub trait MultiElementStorage: ElementStorage {
-    fn allocate<T: ?Sized + Pointee>(&mut self, meta: T::Metadata) -> Result<Self::Handle<T>>;
+    fn allocate<T: ?Sized + Pointee>(&mut self, meta: T::Metadata) -> error::Result<Self::Handle<T>>;
     unsafe fn deallocate<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>);
 
     fn create<T: Pointee>(&mut self, value: T) -> core::result::Result<Self::Handle<T>, T> {
@@ -94,7 +98,7 @@ pub trait RangeStorage {
         &mut self,
         handle: Self::Handle<T>,
         capacity: usize,
-    ) -> Result<Self::Handle<T>> {
+    ) -> error::Result<Self::Handle<T>> {
         Err(StorageError::Unimplemented)
     }
 
@@ -103,13 +107,13 @@ pub trait RangeStorage {
         &mut self,
         handle: Self::Handle<T>,
         capacity: usize,
-    ) -> Result<Self::Handle<T>> {
+    ) -> error::Result<Self::Handle<T>> {
         Err(StorageError::Unimplemented)
     }
 }
 
 pub trait SingleRangeStorage: RangeStorage {
-    fn allocate_single<T>(&mut self, capacity: usize) -> Result<Self::Handle<T>>;
+    fn allocate_single<T>(&mut self, capacity: usize) -> error::Result<Self::Handle<T>>;
     unsafe fn deallocate_single<T>(&mut self, handle: Self::Handle<T>);
 
     fn create_single<T, const N: usize>(
@@ -132,8 +136,9 @@ pub trait SingleRangeStorage: RangeStorage {
         Ok(handle)
     }
 }
+
 pub trait MultiRangeStorage: RangeStorage {
-    fn allocate<T>(&mut self, capacity: usize) -> Result<Self::Handle<T>>;
+    fn allocate<T>(&mut self, capacity: usize) -> error::Result<Self::Handle<T>>;
     unsafe fn deallocate<T>(&mut self, handle: Self::Handle<T>);
 
     fn create<T, const N: usize>(

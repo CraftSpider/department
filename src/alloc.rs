@@ -7,7 +7,7 @@ use rs_alloc::alloc::Global;
 use crate::error::StorageError;
 use crate::traits::{
     ElementStorage, MultiElementStorage, MultiRangeStorage, RangeStorage, SingleElementStorage,
-    SingleRangeStorage
+    SingleRangeStorage,
 };
 use crate::utils;
 
@@ -53,21 +53,12 @@ impl<A: Allocator> SingleElementStorage for Alloc<A> {
     fn allocate_single<T: ?Sized + Pointee>(
         &mut self,
         meta: T::Metadata,
-    ) -> crate::traits::Result<Self::Handle<T>> {
-        let layout = utils::layout_of::<T>(meta);
-
-        let allocated: NonNull<()> = self
-            .0
-            .allocate(layout)
-            .map_err(|_| StorageError::InsufficientSpace(layout.size(), None))?
-            .cast();
-
-        Ok(NonNull::from_raw_parts(allocated, meta))
+    ) -> crate::error::Result<Self::Handle<T>> {
+        <Self as MultiElementStorage>::allocate(self, meta)
     }
 
     unsafe fn deallocate_single<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>) {
-        let layout = Layout::for_value(handle.as_ref());
-        self.0.deallocate(handle.cast(), layout);
+        <Self as MultiElementStorage>::deallocate(self, handle)
     }
 }
 
@@ -75,7 +66,7 @@ impl<A: Allocator> MultiElementStorage for Alloc<A> {
     fn allocate<T: ?Sized + Pointee>(
         &mut self,
         meta: T::Metadata,
-    ) -> crate::traits::Result<Self::Handle<T>> {
+    ) -> crate::error::Result<Self::Handle<T>> {
         let layout = utils::layout_of::<T>(meta);
 
         let allocated: NonNull<()> = self
@@ -108,7 +99,7 @@ impl<A: Allocator> RangeStorage for Alloc<A> {
         &mut self,
         handle: Self::Handle<T>,
         capacity: usize,
-    ) -> crate::traits::Result<Self::Handle<T>> {
+    ) -> crate::error::Result<Self::Handle<T>> {
         let old_len = handle.as_ref().len();
 
         let old_layout = Layout::array::<T>(old_len).expect("Valid handle");
@@ -127,7 +118,7 @@ impl<A: Allocator> RangeStorage for Alloc<A> {
         &mut self,
         handle: Self::Handle<T>,
         capacity: usize,
-    ) -> crate::traits::Result<Self::Handle<T>> {
+    ) -> crate::error::Result<Self::Handle<T>> {
         let old_len = handle.as_ref().len();
 
         let old_layout = Layout::array::<T>(old_len).expect("Valid handle");
@@ -144,28 +135,20 @@ impl<A: Allocator> RangeStorage for Alloc<A> {
 }
 
 impl<A: Allocator> SingleRangeStorage for Alloc<A> {
-    fn allocate_single<T>(&mut self, capacity: usize) -> crate::traits::Result<Self::Handle<T>> {
-        let layout = Layout::array::<T>(capacity).map_err(|_| StorageError::exceeds_max())?;
-        let pointer = self.0
-            .allocate(layout)
-            .map_err(|_| StorageError::InsufficientSpace(layout.size(), None))?;
-        Ok(NonNull::from_raw_parts(pointer.cast(), capacity))
+    fn allocate_single<T>(&mut self, capacity: usize) -> crate::error::Result<Self::Handle<T>> {
+        <Self as MultiRangeStorage>::allocate(self, capacity)
     }
 
     unsafe fn deallocate_single<T>(&mut self, handle: Self::Handle<T>) {
-        let old_len = handle.as_ref().len();
-
-        let layout = Layout::array::<T>(old_len).expect("Valid handle");
-        let pointer = handle;
-
-        self.0.deallocate(pointer.cast(), layout)
+        <Self as MultiRangeStorage>::deallocate(self, handle)
     }
 }
 
 impl<A: Allocator> MultiRangeStorage for Alloc<A> {
-    fn allocate<T>(&mut self, capacity: usize) -> crate::traits::Result<Self::Handle<T>> {
+    fn allocate<T>(&mut self, capacity: usize) -> crate::error::Result<Self::Handle<T>> {
         let layout = Layout::array::<T>(capacity).map_err(|_| StorageError::exceeds_max())?;
-        let pointer = self.0
+        let pointer = self
+            .0
             .allocate(layout)
             .map_err(|_| StorageError::InsufficientSpace(layout.size(), None))?;
         Ok(NonNull::from_raw_parts(pointer.cast(), capacity))

@@ -50,11 +50,12 @@ impl<S, const N: usize> MultiElementStorage for MultiElement<S, N> {
     fn allocate<T: ?Sized + Pointee>(
         &mut self,
         meta: T::Metadata,
-    ) -> crate::traits::Result<Self::Handle<T>> {
+    ) -> crate::error::Result<Self::Handle<T>> {
         utils::validate_layout::<T, S>(meta)?;
 
         // Find first unused storage
-        let pos = self.used
+        let pos = self
+            .used
             .iter()
             .position(|i| !*i)
             .ok_or(StorageError::NoSlots)?;

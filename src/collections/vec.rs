@@ -1,9 +1,9 @@
+use core::{fmt, mem, slice};
 use core::borrow::{Borrow, BorrowMut};
 use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut, Index, IndexMut};
-use core::{fmt, slice, mem};
 
-use crate::traits;
+use crate::error::Result;
 use crate::traits::SingleRangeStorage;
 
 pub struct Vec<T, S>
@@ -29,7 +29,7 @@ where
         }
     }
 
-    pub fn try_new() -> traits::Result<Vec<T, S>> {
+    pub fn try_new() -> Result<Vec<T, S>> {
         let mut storage = S::default();
 
         Ok(Vec {
@@ -37,6 +37,16 @@ where
             len: 0,
             storage,
         })
+    }
+
+    pub fn with_capacity(size: usize) -> Vec<T, S> {
+        let mut storage = S::default();
+
+        Vec {
+            handle: storage.allocate_single(size).unwrap(),
+            len: size,
+            storage,
+        }
     }
 }
 
@@ -52,12 +62,20 @@ where
         }
     }
 
-    pub fn try_new_in(mut storage: S) -> traits::Result<Vec<T, S>> {
+    pub fn try_new_in(mut storage: S) -> Result<Vec<T, S>> {
         Ok(Vec {
             handle: storage.allocate_single(0)?,
             len: 0,
             storage,
         })
+    }
+
+    pub fn with_capacity_in(size: usize, mut storage: S) -> Vec<T, S> {
+        Vec {
+            handle: storage.allocate_single(size).unwrap(),
+            len: size,
+            storage,
+        }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -83,7 +101,8 @@ where
             };
 
             unsafe {
-                self.handle = self.storage
+                self.handle = self
+                    .storage
                     .try_grow(self.handle, new_capacity)
                     .expect("Couldn't grow Vec buffer");
             }
@@ -122,7 +141,7 @@ where
 
 impl<T, S> Default for Vec<T, S>
 where
-    S: SingleRangeStorage + Default
+    S: SingleRangeStorage + Default,
 {
     fn default() -> Vec<T, S> {
         Vec::new()
@@ -246,6 +265,62 @@ where
             len: self.len(),
             storage: new_storage,
         }
+    }
+}
+
+impl<T, S> From<&[T]> for Vec<T, S>
+where
+    T: Clone,
+    S: SingleRangeStorage + Default,
+{
+    fn from(val: &[T]) -> Self {
+        let mut v = Vec::with_capacity(val.len());
+        v.extend(val.into_iter().cloned());
+        v
+    }
+}
+
+impl<T, S, const N: usize> From<[T; N]> for Vec<T, S>
+where
+    S: SingleRangeStorage + Default,
+{
+    fn from(val: [T; N]) -> Self {
+        let mut v = Vec::with_capacity(N);
+        v.extend(val);
+        v
+    }
+}
+
+impl<T, S> From<(&[T], S)> for Vec<T, S>
+where
+    T: Clone,
+    S: SingleRangeStorage,
+{
+    fn from(val: (&[T], S)) -> Self {
+        let mut v = Vec::with_capacity_in(val.0.len(), val.1);
+        v.extend(val.0.into_iter().cloned());
+        v
+    }
+}
+
+impl<T, S, const N: usize> From<([T; N], S)> for Vec<T, S>
+    where
+        S: SingleRangeStorage,
+{
+    fn from(val: ([T; N], S)) -> Self {
+        let mut v = Vec::with_capacity_in(N, val.1);
+        v.extend(val.0);
+        v
+    }
+}
+
+impl<T, S> Extend<T> for Vec<T, S>
+where
+    S: SingleRangeStorage,
+{
+    fn extend<I: IntoIterator<Item=T>>(&mut self, iter: I) {
+        iter.into_iter()
+            .for_each(|i| self.push(i))
     }
 }
 

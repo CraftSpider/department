@@ -1,5 +1,7 @@
 use core::fmt;
 
+pub type Result<T> = core::result::Result<T, StorageError>;
+
 #[derive(Debug)]
 pub enum StorageError {
     InsufficientSpace(usize, Option<usize>),
@@ -23,25 +25,19 @@ impl fmt::Display for StorageError {
             StorageError::InsufficientSpace(expected, available) => {
                 write!(f, "Insufficient space in storage. ")?;
                 match available {
-                    Some(usize::MAX) => write!(
-                        f,
-                        "Expected more than usize::MAX",
-                    )?,
+                    Some(usize::MAX) => write!(f, "Expected more than usize::MAX",)?,
                     Some(available) => write!(
                         f,
-                        "Expected {}, but only {} is available", expected, available
+                        "Expected {}, but only {} is available",
+                        expected, available
                     )?,
-                    None => write!(
-                        f,
-                        "Expected {}, but less was available", expected
-                    )?,
+                    None => write!(f, "Expected {}, but less was available", expected)?,
                 }
             }
             StorageError::InvalidAlign(expected, actual) => write!(
                 f,
                 "Invalid align to store type. Expected layout of at least {}, but backing was {}",
-                expected,
-                actual
+                expected, actual
             )?,
             StorageError::NoSlots => write!(f, "Multi-element storage has run out of slots")?,
             StorageError::Unimplemented => write!(f, "Operation is not supported on this storage")?,

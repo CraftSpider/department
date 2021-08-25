@@ -1,9 +1,9 @@
-use core::{mem, ptr};
 use core::alloc::Layout;
 use core::ptr::Pointee;
+use core::{mem, ptr};
 
 use crate::error::StorageError;
-use crate::traits::Result;
+use crate::error::Result;
 
 pub(crate) fn layout_of<T: ?Sized + Pointee>(meta: T::Metadata) -> Layout {
     let pointer = ptr::from_raw_parts(ptr::null_mut(), meta);
@@ -25,8 +25,14 @@ pub(crate) fn validate_layout_for<S>(layout: Layout) -> Result<()> {
     if validated_size && validated_layout {
         Ok(())
     } else if !validated_size {
-        Err(StorageError::InsufficientSpace(layout.size(), Some(mem::size_of::<S>())))
+        Err(StorageError::InsufficientSpace(
+            layout.size(),
+            Some(mem::size_of::<S>()),
+        ))
     } else {
-        Err(StorageError::InvalidAlign(layout.align(), mem::align_of::<S>()))
+        Err(StorageError::InvalidAlign(
+            layout.align(),
+            mem::align_of::<S>(),
+        ))
     }
 }

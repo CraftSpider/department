@@ -35,7 +35,7 @@ impl<S, const N: usize> RangeStorage for SingleRange<S, N> {
 }
 
 impl<S, const N: usize> SingleRangeStorage for SingleRange<S, N> {
-    fn allocate_single<T>(&mut self, capacity: usize) -> crate::traits::Result<Self::Handle<T>> {
+    fn allocate_single<T>(&mut self, capacity: usize) -> crate::error::Result<Self::Handle<T>> {
         utils::validate_array_layout::<T, [MaybeUninit<S>; N]>(capacity)?;
         Ok(SingleRangeHandle(PhantomData))
     }

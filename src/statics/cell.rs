@@ -1,4 +1,3 @@
-
 use core::cell::UnsafeCell;
 use core::sync::atomic::{AtomicBool, Ordering};
 
@@ -34,7 +33,8 @@ impl<S> StorageCell<S> {
     where
         T: StaticStorage<S>,
     {
-        self.try_claim::<T>().unwrap_or_else(|| panic!("StorageCell already claimed by existing storage"))
+        self.try_claim::<T>()
+            .unwrap_or_else(|| panic!("StorageCell already claimed by existing storage"))
     }
 
     pub(crate) fn release(&self) {
@@ -44,12 +44,9 @@ impl<S> StorageCell<S> {
     }
 
     fn inner_try_claim(&self) -> bool {
-        let result = self.1.compare_exchange(
-            false,
-            true,
-            Ordering::SeqCst,
-            Ordering::Acquire
-        );
+        let result = self
+            .1
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::Acquire);
 
         match result {
             Ok(val) => val == false,
@@ -58,12 +55,9 @@ impl<S> StorageCell<S> {
     }
 
     fn inner_try_release(&self) -> bool {
-        let result = self.1.compare_exchange(
-            true,
-            false,
-            Ordering::SeqCst,
-            Ordering::Relaxed,
-        );
+        let result = self
+            .1
+            .compare_exchange(true, false, Ordering::SeqCst, Ordering::Relaxed);
 
         result.is_ok()
     }
@@ -78,7 +72,7 @@ unsafe impl<S: Sync> Sync for StorageCell<S> {}
 
 impl<S> Default for StorageCell<S>
 where
-    S: Default
+    S: Default,
 {
     fn default() -> StorageCell<S> {
         StorageCell::new(S::default())

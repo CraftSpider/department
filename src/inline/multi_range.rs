@@ -4,9 +4,9 @@ use core::mem;
 use core::mem::MaybeUninit;
 use core::ptr::NonNull;
 
+use crate::error::StorageError;
 use crate::traits::{MultiRangeStorage, RangeStorage};
 use crate::utils;
-use crate::error::StorageError;
 
 pub struct MultiRange<S, const N: usize, const M: usize> {
     used: [bool; M],
@@ -46,11 +46,15 @@ impl<S, const N: usize, const M: usize> RangeStorage for MultiRange<S, N, M> {
 }
 
 impl<S, const N: usize, const M: usize> MultiRangeStorage for MultiRange<S, N, M> {
-    fn allocate<T>(&mut self, capacity: usize) -> crate::traits::Result<Self::Handle<T>> {
+    fn allocate<T>(&mut self, capacity: usize) -> crate::error::Result<Self::Handle<T>> {
         utils::validate_array_layout::<T, [MaybeUninit<S>; N]>(capacity)?;
 
         // Find first unused storage
-        let pos = self.used.iter().position(|i| !*i).ok_or(StorageError::NoSlots)?;
+        let pos = self
+            .used
+            .iter()
+            .position(|i| !*i)
+            .ok_or(StorageError::NoSlots)?;
 
         self.used[pos] = true;
 
@@ -61,8 +65,6 @@ impl<S, const N: usize, const M: usize> MultiRangeStorage for MultiRange<S, N, M
         self.used[handle.0] = false;
     }
 }
-
-
 
 impl<S, const N: usize, const M: usize> Default for MultiRange<S, N, M> {
     fn default() -> Self {

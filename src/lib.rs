@@ -7,7 +7,6 @@
 #![feature(maybe_uninit_uninit_array)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "alloc", feature(allocator_api))]
-
 #![warn(
     // missing_docs,
     elided_lifetimes_in_paths,
@@ -35,10 +34,11 @@ pub mod traits;
 
 pub mod boxed;
 pub mod collections;
+pub mod string;
 
 #[cfg(feature = "alloc")]
 pub mod alloc;
+mod error;
+pub mod inline;
 #[cfg(target_has_atomic = "8")]
 pub mod statics;
-pub mod inline;
-mod error;

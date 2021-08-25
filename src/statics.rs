@@ -1,6 +1,5 @@
-
-mod traits;
 mod cell;
+mod traits;
 
 mod multi_elem;
 mod single_elem;
