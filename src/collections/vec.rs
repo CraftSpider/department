@@ -279,7 +279,7 @@ where
 {
     fn from(val: &[T]) -> Self {
         let mut v = Vec::with_capacity(val.len());
-        v.extend(val.into_iter().cloned());
+        v.extend(val.iter().cloned());
         v
     }
 }
@@ -302,7 +302,7 @@ where
 {
     fn from(val: (&[T], S)) -> Self {
         let mut v = Vec::with_capacity_in(val.0.len(), val.1);
-        v.extend(val.0.into_iter().cloned());
+        v.extend(val.0.iter().cloned());
         v
     }
 }
