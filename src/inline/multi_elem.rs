@@ -4,8 +4,8 @@ use core::marker::Unsize;
 use core::mem::MaybeUninit;
 use core::ptr::{NonNull, Pointee};
 
-use crate::error::StorageError;
 use crate::base::{ElementStorage, MultiElementStorage, StorageSafe};
+use crate::error::StorageError;
 use crate::utils;
 
 pub struct MultiElement<S, const N: usize> {

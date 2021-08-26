@@ -1,15 +1,19 @@
 use core::fmt;
 
+/// A result with [`StorageError`] as its error type
 pub type Result<T> = core::result::Result<T, StorageError>;
 
+/// The error type returned by storages upon allocation failure
 #[derive(Debug)]
 pub enum StorageError {
+    /// The allocator didn't have enough space for the requested allocation
     InsufficientSpace(usize, Option<usize>),
+    /// The allocator alignment wasn't valid for the requested allocation
     InvalidAlign(usize, usize),
-    /// Only emitted by multi-item storages (Note that this may be returned from a single-item
-    /// implementation if the backing is multi-item), indicates the maximum number of items have
-    /// been allocated at once. *Sometimes* freeing existing items can fix this.
+    /// The maximum number of items have been allocated at once. *Sometimes* freeing existing items
+    /// can fix this.
     NoSlots,
+    /// The requested operation isn't supported by this allocator.
     Unimplemented,
 }
 

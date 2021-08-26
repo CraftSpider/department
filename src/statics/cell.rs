@@ -3,9 +3,12 @@ use core::sync::atomic::{AtomicBool, Ordering};
 
 use super::traits::StaticStorage;
 
+/// A cell to use in statics, allowing them to be 'claimed' by a storage,
+/// preventing aliased usage of the backing item.
 pub struct StorageCell<S>(UnsafeCell<S>, AtomicBool);
 
 impl<S> StorageCell<S> {
+    /// Create a new storage cell containing the provided value
     pub const fn new(val: S) -> StorageCell<S> {
         StorageCell(UnsafeCell::new(val), AtomicBool::new(false))
     }

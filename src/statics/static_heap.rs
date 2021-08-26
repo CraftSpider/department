@@ -6,11 +6,8 @@ use core::ops::Range;
 use core::ptr::{NonNull, Pointee};
 use core::{fmt, mem, ptr};
 
+use crate::base::{ElementStorage, MultiElementStorage, MultiRangeStorage, RangeStorage, SingleElementStorage, SingleRangeStorage, StorageSafe};
 use crate::error::{Result, StorageError};
-use crate::base::{
-    ElementStorage, MultiElementStorage, MultiRangeStorage, RangeStorage, SingleElementStorage,
-    SingleRangeStorage, StorageSafe,
-};
 use crate::utils;
 
 fn blocks<S>(size: usize) -> usize {
@@ -21,12 +18,16 @@ fn blocks_for<S, T>(capacity: usize) -> usize {
     (mem::size_of::<T>() * capacity + 3) / mem::size_of::<S>()
 }
 
+/// A storage based on a static variable, supporting heap-like behavior but compiled into
+/// the binary. Useful for environments with no allocator support but sufficient space for a
+/// slightly larger program.
 pub struct StaticHeap<S, const N: usize> {
     used: spin::Mutex<[bool; N]>,
     storage: UnsafeCell<[MaybeUninit<S>; N]>,
 }
 
 impl<S, const N: usize> StaticHeap<S, N> {
+    /// Create a new static heap
     pub const fn new() -> StaticHeap<S, N> {
         StaticHeap {
             used: spin::Mutex::new([false; N]),

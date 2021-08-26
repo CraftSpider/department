@@ -3,8 +3,8 @@ use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut, Index, IndexMut};
 use core::{fmt, mem, ptr, slice};
 
-use crate::error::Result;
 use crate::base::SingleRangeStorage;
+use crate::error::Result;
 
 pub struct Vec<T, S>
 where

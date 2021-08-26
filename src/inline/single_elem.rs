@@ -4,8 +4,8 @@ use core::marker::Unsize;
 use core::mem::MaybeUninit;
 use core::ptr::{NonNull, Pointee};
 
-use crate::error::Result;
 use crate::base::{ElementStorage, SingleElementStorage, StorageSafe};
+use crate::error::Result;
 use crate::utils;
 
 pub struct SingleElement<S> {

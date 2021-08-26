@@ -4,25 +4,26 @@ use core::mem::MaybeUninit;
 use core::ptr::{NonNull, Pointee};
 use rs_alloc::alloc::Global;
 
+use crate::base::{ElementStorage, MultiElementStorage, MultiRangeStorage, RangeStorage, SingleElementStorage, SingleRangeStorage};
 use crate::error::StorageError;
-use crate::base::{
-    ElementStorage, MultiElementStorage, MultiRangeStorage, RangeStorage, SingleElementStorage,
-    SingleRangeStorage,
-};
 use crate::utils;
 
+/// An alias for a storage using the global allocator
 pub type GlobalAlloc = Alloc<Global>;
 
+/// Storage for using a standard `alloc::Allocator` as the backing
 #[derive(Copy, Clone)]
 pub struct Alloc<A: Allocator>(A);
 
 impl<A: Allocator> Alloc<A> {
+    /// Create a new [`Alloc`] from the provided allocator instance.
     pub fn new(alloc: A) -> Alloc<A> {
         Alloc(alloc)
     }
 }
 
 impl Alloc<Global> {
+    /// Get a storage backed by the global allocator
     pub fn global() -> Alloc<Global> {
         Alloc(Global)
     }
@@ -127,7 +128,7 @@ impl<A: Allocator> RangeStorage for Alloc<A> {
         let new_ptr = self
             .0
             .shrink(handle.cast(), old_layout, new_layout)
-            // Shrinking should... probably only fail if it's not a thing?
+            // Should probably only fail if shrinking isn't supported
             .map_err(|_| StorageError::Unimplemented)?;
 
         Ok(NonNull::from_raw_parts(new_ptr.cast(), capacity))

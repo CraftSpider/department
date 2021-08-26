@@ -1,8 +1,8 @@
 use core::ops::Deref;
 
+use crate::base::SingleRangeStorage;
 use crate::collections::Vec;
 use crate::error::Result;
-use crate::base::SingleRangeStorage;
 
 pub struct String<S>
 where
