@@ -1,4 +1,4 @@
-use core::{array, ptr};
+use core::{array, ptr, fmt};
 use core::marker::Unsize;
 use core::mem::MaybeUninit;
 use core::ptr::{NonNull, Pointee};
@@ -6,7 +6,16 @@ use core::ptr::{NonNull, Pointee};
 use crate::error;
 use crate::error::StorageError;
 
-// TODO: Allocation error
+pub unsafe trait StorageSafe: Copy + fmt::Debug {}
+
+unsafe impl StorageSafe for u8 {}
+unsafe impl StorageSafe for u16 {}
+unsafe impl StorageSafe for u32 {}
+unsafe impl StorageSafe for u64 {}
+unsafe impl StorageSafe for u128 {}
+unsafe impl StorageSafe for usize {}
+
+unsafe impl<T: StorageSafe, const N: usize> StorageSafe for [T; N] {}
 
 pub trait ElementStorage {
     type Handle<T: ?Sized /*+ Pointee*/>: Clone + Copy;

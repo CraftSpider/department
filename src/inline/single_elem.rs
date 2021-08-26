@@ -5,7 +5,7 @@ use core::mem::MaybeUninit;
 use core::ptr::{NonNull, Pointee};
 
 use crate::error::Result;
-use crate::traits::{ElementStorage, SingleElementStorage};
+use crate::traits::{ElementStorage, SingleElementStorage, StorageSafe};
 use crate::utils;
 
 pub struct SingleElement<S> {
@@ -20,7 +20,10 @@ impl<S> SingleElement<S> {
     }
 }
 
-impl<S> ElementStorage for SingleElement<S> {
+impl<S> ElementStorage for SingleElement<S>
+where
+    S: StorageSafe,
+{
     type Handle<T: ?Sized + Pointee> = SingleElementHandle<T>;
 
     unsafe fn get<T: ?Sized + Pointee>(&self, handle: Self::Handle<T>) -> NonNull<T> {
@@ -38,7 +41,10 @@ impl<S> ElementStorage for SingleElement<S> {
     }
 }
 
-impl<S> SingleElementStorage for SingleElement<S> {
+impl<S> SingleElementStorage for SingleElement<S>
+where
+    S: StorageSafe,
+{
     fn allocate_single<T: ?Sized + Pointee>(
         &mut self,
         meta: T::Metadata,

@@ -1,4 +1,4 @@
-use core::{mem, ptr};
+use core::{mem, ptr, fmt};
 use core::alloc::Layout;
 use core::cell::UnsafeCell;
 use core::marker::Unsize;
@@ -7,10 +7,7 @@ use core::ops::Range;
 use core::ptr::{NonNull, Pointee};
 
 use crate::error::{Result, StorageError};
-use crate::traits::{
-    ElementStorage, MultiElementStorage, MultiRangeStorage, RangeStorage,
-    SingleElementStorage, SingleRangeStorage,
-};
+use crate::traits::{ElementStorage, MultiElementStorage, MultiRangeStorage, RangeStorage, SingleElementStorage, SingleRangeStorage, StorageSafe};
 use crate::utils;
 
 fn blocks<S>(size: usize) -> usize {
@@ -33,34 +30,52 @@ impl<S, const N: usize> StaticHeap<S, N> {
             storage: UnsafeCell::new(MaybeUninit::uninit_array::<N>()),
         }
     }
+}
+
+impl<S, const N: usize> StaticHeap<S, N>
+where
+    S: StorageSafe,
+{
 
     fn find_lock(&self, size: usize) -> Result<usize> {
         let mut used = self.used.lock();
         let open = self.find_open(&used, size)?;
         let start = open.start;
-
-        used[open].iter_mut().for_each(|i| *i = true);
-
+        self.lock_range(&mut used, open);
         Ok(start)
     }
 
-    fn unlock(&self, start: usize, size: usize) {
-        self.used
-            .lock()
-            [start..(start + blocks::<S>(size))]
+    fn lock_range(&self, lock: &mut spin::MutexGuard<'_, [bool; N]>, range: Range<usize>) {
+        lock[range]
             .iter_mut()
-            .for_each(|i| *i = false);
+            .for_each(|i| {
+                debug_assert!(*i == false);
+                *i = true
+            });
     }
 
+    fn unlock_range(&self, lock: &mut spin::MutexGuard<'_, [bool; N]>, range: Range<usize>) {
+        lock[range]
+            .iter_mut()
+            .for_each(|i| {
+                debug_assert!(*i == true);
+                *i = false
+            });
+    }
+
+    /// Attempt to find open space for an allocation of a given size.
+    /// If size is zero, this returns a zero-sized range
     fn find_open(
         &self,
         lock: &spin::MutexGuard<'_, [bool; N]>,
         size: usize,
     ) -> Result<Range<usize>> {
-        if blocks::<S>(size) == 0 {
+        let blocks = blocks::<S>(size);
+
+        if blocks == 0 {
             return Ok(0..0);
         }
-        if blocks::<S>(size) >= N {
+        if blocks >= N {
             return Err(StorageError::InsufficientSpace(
                 size,
                 Some(mem::size_of::<S>() * N),
@@ -68,6 +83,7 @@ impl<S, const N: usize> StaticHeap<S, N> {
         }
 
         lock.iter()
+            // Count chains of `false` items
             .scan(0, |n, &v| {
                 if !v {
                     *n += 1
@@ -76,15 +92,19 @@ impl<S, const N: usize> StaticHeap<S, N> {
                 }
                 Some(*n)
             })
-            .position(|n| n >= blocks::<S>(size))
-            .map(|n| (n - (blocks::<S>(size) - 1)))
-            .map(|start| start..(start + blocks::<S>(size)))
+            // Find the end point of a chain with the right size, if one exist
+            .position(|count| count >= blocks)
+            // Find the range of the desired chain
+            .map(|end| {
+                let start = end - (blocks - 1);
+                start..(end + 1)
+            })
             .ok_or(StorageError::NoSlots)
     }
 
     fn grow_in_place<T>(
         &self,
-        handle: <&Self as RangeStorage>::Handle<T>,
+        handle: HeapHandle<[T]>,
         old_layout: Layout,
         new_layout: Layout,
     ) -> bool {
@@ -93,14 +113,14 @@ impl<S, const N: usize> StaticHeap<S, N> {
         let old_blocks = blocks::<S>(old_layout.size());
         let new_blocks = blocks::<S>(new_layout.size());
 
-        let has_space = used[(handle.0 + old_blocks)..(handle.0 + new_blocks)]
+        let after_old = (handle.0 + old_blocks)..(handle.0 + new_blocks);
+
+        let has_space = used[after_old.clone()]
             .iter()
             .all(|&i| i == false);
 
         if has_space {
-            used[(handle.0 + old_blocks)..(handle.0 + new_blocks)]
-                .iter_mut()
-                .for_each(|i| *i = true);
+            self.lock_range(&mut used, after_old);
         }
 
         has_space
@@ -111,39 +131,40 @@ impl<S, const N: usize> StaticHeap<S, N> {
         handle: <&Self as RangeStorage>::Handle<T>,
         new_layout: Layout,
     ) -> Option<usize> {
-        let mut lock = self.used.lock();
+        let mut used = self.used.lock();
         let old_range = handle.0..(handle.0 + blocks_for::<S, T>(handle.1));
 
         if handle.1 != 0 {
-            lock[old_range.clone()]
-                .iter_mut()
-                .for_each(|i| *i = false);
+            self.unlock_range(&mut used, old_range.clone());
         }
 
-        let new_range = match self.find_open(&lock, new_layout.size()) {
+        let new_range = match self.find_open(&used, new_layout.size()) {
             Ok(open) => open,
             Err(_) => {
                 if handle.1 != 0 {
-                    lock[old_range]
-                        .iter_mut()
-                        .for_each(|i| *i = true);
+                    self.lock_range(&mut used, old_range);
                 }
                 return None;
             }
         };
 
         let new_start = new_range.start;
-        lock[new_range]
-            .iter_mut()
-            .for_each(|i| *i = true);
+        self.lock_range(&mut used, new_range);
 
-        utils::move_within(unsafe { &mut *self.storage.get() }, old_range, new_start);
+        utils::move_within::<MaybeUninit<S>, N>(
+            unsafe { &mut *self.storage.get() },
+            old_range,
+            new_start
+        );
 
         Some(new_start)
     }
 }
 
-impl<S, const N: usize> ElementStorage for &StaticHeap<S, N> {
+impl<S, const N: usize> ElementStorage for &StaticHeap<S, N>
+where
+    S: StorageSafe,
+{
     type Handle<T: ?Sized + Pointee> = HeapHandle<T>;
 
     unsafe fn get<T: ?Sized + Pointee>(&self, handle: Self::Handle<T>) -> NonNull<T> {
@@ -163,7 +184,10 @@ impl<S, const N: usize> ElementStorage for &StaticHeap<S, N> {
     }
 }
 
-impl<S, const N: usize> SingleElementStorage for &StaticHeap<S, N> {
+impl<S, const N: usize> SingleElementStorage for &StaticHeap<S, N>
+where
+    S: StorageSafe,
+{
     fn allocate_single<T: ?Sized + Pointee>(
         &mut self,
         meta: T::Metadata,
@@ -176,7 +200,10 @@ impl<S, const N: usize> SingleElementStorage for &StaticHeap<S, N> {
     }
 }
 
-impl<S, const N: usize> MultiElementStorage for &StaticHeap<S, N> {
+impl<S, const N: usize> MultiElementStorage for &StaticHeap<S, N>
+where
+    S: StorageSafe,
+{
     fn allocate<T: ?Sized + Pointee>(&mut self, meta: T::Metadata) -> Result<Self::Handle<T>> {
         let layout = utils::layout_of::<T>(meta);
         utils::validate_layout_for::<[S; N]>(layout)?;
@@ -186,11 +213,15 @@ impl<S, const N: usize> MultiElementStorage for &StaticHeap<S, N> {
 
     unsafe fn deallocate<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>) {
         let layout = Layout::for_value(<Self as ElementStorage>::get(self, handle).as_ref());
-        self.unlock(handle.0, layout.size());
+        let mut used = self.used.lock();
+        self.unlock_range(&mut used, handle.0..(handle.0 + blocks::<S>(layout.size())));
     }
 }
 
-impl<S, const N: usize> RangeStorage for &StaticHeap<S, N> {
+impl<S, const N: usize> RangeStorage for &StaticHeap<S, N>
+where
+    S: StorageSafe,
+{
     // Handle::1 is the capacity *in terms of T*
     type Handle<T> = HeapHandle<[T]>;
 
@@ -231,17 +262,15 @@ impl<S, const N: usize> RangeStorage for &StaticHeap<S, N> {
         capacity: usize,
     ) -> Result<Self::Handle<T>> {
         debug_assert!(capacity <= handle.1);
-
-        self.used
-            .lock()[(handle.0 + capacity)..(handle.0 + handle.1)]
-            .iter_mut()
-            .for_each(|i| *i = false);
-
+        self.unlock_range(&mut self.used.lock(), (handle.0 + capacity)..(handle.0 + handle.1));
         Ok(HeapHandle(handle.0, capacity))
     }
 }
 
-impl<S, const N: usize> SingleRangeStorage for &StaticHeap<S, N> {
+impl<S, const N: usize> SingleRangeStorage for &StaticHeap<S, N>
+    where
+        S: StorageSafe,
+{
     fn allocate_single<T>(&mut self, capacity: usize) -> Result<Self::Handle<T>> {
         <Self as MultiRangeStorage>::allocate(self, capacity)
     }
@@ -251,7 +280,10 @@ impl<S, const N: usize> SingleRangeStorage for &StaticHeap<S, N> {
     }
 }
 
-impl<S, const N: usize> MultiRangeStorage for &StaticHeap<S, N> {
+impl<S, const N: usize> MultiRangeStorage for &StaticHeap<S, N>
+where
+    S: StorageSafe,
+{
     fn allocate<T>(&mut self, capacity: usize) -> Result<Self::Handle<T>> {
         let layout = Layout::array::<T>(capacity).map_err(|_| StorageError::exceeds_max())?;
         utils::validate_layout_for::<[S; N]>(layout)?;
@@ -261,12 +293,13 @@ impl<S, const N: usize> MultiRangeStorage for &StaticHeap<S, N> {
 
     unsafe fn deallocate<T>(&mut self, handle: Self::Handle<T>) {
         let layout = Layout::for_value(<Self as ElementStorage>::get(self, handle).as_ref());
-        self.unlock(handle.0, layout.size());
+        let mut used = self.used.lock();
+        self.unlock_range(&mut used, handle.0..(handle.0 + blocks::<S>(layout.size())));
     }
 }
 
-unsafe impl<S: Send, const N: usize> Send for StaticHeap<S, N> {}
-unsafe impl<S: Sync, const N: usize> Sync for StaticHeap<S, N> {}
+unsafe impl<S: Send + StorageSafe, const N: usize> Send for StaticHeap<S, N> {}
+unsafe impl<S: Sync + StorageSafe, const N: usize> Sync for StaticHeap<S, N> {}
 
 pub struct HeapHandle<T: ?Sized + Pointee>(usize, T::Metadata);
 
@@ -277,6 +310,18 @@ impl<T: ?Sized> Clone for HeapHandle<T> {
 }
 
 impl<T: ?Sized> Copy for HeapHandle<T> {}
+
+impl<T: ?Sized> fmt::Debug for HeapHandle<T>
+where
+    <T as Pointee>::Metadata: fmt::Debug,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("HeapHandle")
+            .field(&self.0)
+            .field(&self.1)
+            .finish()
+    }
+}
 
 #[cfg(test)]
 mod tests {
