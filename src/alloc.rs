@@ -4,7 +4,10 @@ use core::mem::MaybeUninit;
 use core::ptr::{NonNull, Pointee};
 use rs_alloc::alloc::Global;
 
-use crate::base::{ElementStorage, MultiElementStorage, MultiRangeStorage, RangeStorage, SingleElementStorage, SingleRangeStorage};
+use crate::base::{
+    ElementStorage, MultiElementStorage, MultiRangeStorage, RangeStorage, SingleElementStorage,
+    SingleRangeStorage,
+};
 use crate::error::StorageError;
 use crate::utils;
 

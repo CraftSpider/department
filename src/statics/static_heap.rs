@@ -6,7 +6,10 @@ use core::ops::Range;
 use core::ptr::{NonNull, Pointee};
 use core::{fmt, mem, ptr};
 
-use crate::base::{ElementStorage, MultiElementStorage, MultiRangeStorage, RangeStorage, SingleElementStorage, SingleRangeStorage, StorageSafe};
+use crate::base::{
+    ElementStorage, MultiElementStorage, MultiRangeStorage, RangeStorage, SingleElementStorage,
+    SingleRangeStorage, StorageSafe,
+};
 use crate::error::{Result, StorageError};
 use crate::utils;
 
