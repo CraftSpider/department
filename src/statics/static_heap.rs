@@ -7,7 +7,7 @@ use core::ptr::{NonNull, Pointee};
 use core::{fmt, mem, ptr};
 
 use crate::error::{Result, StorageError};
-use crate::traits::{
+use crate::base::{
     ElementStorage, MultiElementStorage, MultiRangeStorage, RangeStorage, SingleElementStorage,
     SingleRangeStorage, StorageSafe,
 };

@@ -5,7 +5,7 @@ use core::mem::MaybeUninit;
 use core::ptr::{NonNull, Pointee};
 
 use crate::error::Result;
-use crate::traits::{ElementStorage, SingleElementStorage, StorageSafe};
+use crate::base::{ElementStorage, SingleElementStorage, StorageSafe};
 use crate::utils;
 
 pub struct SingleElement<S> {

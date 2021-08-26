@@ -1,3 +1,6 @@
+//! An implementation of the proposed Storages API, including both Storage implementations
+//! as well as common collections built on top of it.
+
 #![feature(unsize)]
 #![feature(generic_associated_types)]
 #![feature(ptr_metadata)]
@@ -30,7 +33,7 @@ extern crate alloc as rs_alloc;
 
 mod utils;
 
-pub mod traits;
+pub mod base;
 
 pub mod boxed;
 pub mod collections;

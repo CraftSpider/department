@@ -7,7 +7,7 @@ use core::ops::{CoerceUnsized, Deref, DerefMut};
 use core::ptr::Pointee;
 use core::{fmt, mem, ptr};
 
-use crate::traits::SingleElementStorage;
+use crate::base::SingleElementStorage;
 
 // TODO: Default to allocation?
 pub struct Box<T: ?Sized + Pointee, S: SingleElementStorage> {
@@ -20,6 +20,12 @@ where
     T: Pointee,
     S: SingleElementStorage + Default,
 {
+    /// Create a new [`Box`] containing the provided value, creating a default instance of the
+    /// desired storage.
+    ///
+    /// # Panics
+    ///
+    /// If the storage fails to allocate for any reason
     pub fn new(val: T) -> Box<T, S> {
         let mut storage = S::default();
         Box {
@@ -44,6 +50,11 @@ where
     T: Pointee,
     S: SingleElementStorage,
 {
+    /// Create a new [`Box`] containing the provided value, in the provided storage.
+    ///
+    /// # Panics
+    ///
+    /// If the storage fails to allocate for any reason
     pub fn new_in(val: T, mut storage: S) -> Box<T, S> {
         Box {
             handle: storage

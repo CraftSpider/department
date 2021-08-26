@@ -5,7 +5,7 @@ use core::mem::MaybeUninit;
 use core::ptr::NonNull;
 
 use crate::error::StorageError;
-use crate::traits::{MultiRangeStorage, RangeStorage, StorageSafe};
+use crate::base::{MultiRangeStorage, RangeStorage, StorageSafe};
 use crate::utils;
 
 pub struct MultiRange<S, const N: usize, const M: usize> {

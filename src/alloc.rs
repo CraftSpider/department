@@ -5,7 +5,7 @@ use core::ptr::{NonNull, Pointee};
 use rs_alloc::alloc::Global;
 
 use crate::error::StorageError;
-use crate::traits::{
+use crate::base::{
     ElementStorage, MultiElementStorage, MultiRangeStorage, RangeStorage, SingleElementStorage,
     SingleRangeStorage,
 };

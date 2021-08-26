@@ -2,6 +2,11 @@
 name = "department"
 version = "0.1.0"
 edition = "2018"
+description = "Implementation of the proposed Storages API"
+license = "MIT OR Apache-2.0"
+keywords = ["allocator", "collection", "experimental", "nightly", "storage", "no_std"]
+categories = ["no-std"]
+repository = "https://github.com/CraftSpider/department"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

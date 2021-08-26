@@ -4,7 +4,7 @@ use core::mem::MaybeUninit;
 use core::ptr::NonNull;
 use core::{fmt, mem};
 
-use crate::traits::{RangeStorage, SingleRangeStorage, StorageSafe};
+use crate::base::{RangeStorage, SingleRangeStorage, StorageSafe};
 use crate::utils;
 
 pub struct SingleRange<S, const N: usize> {

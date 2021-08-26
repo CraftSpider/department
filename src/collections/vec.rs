@@ -4,7 +4,7 @@ use core::ops::{Deref, DerefMut, Index, IndexMut};
 use core::{fmt, mem, ptr, slice};
 
 use crate::error::Result;
-use crate::traits::SingleRangeStorage;
+use crate::base::SingleRangeStorage;
 
 pub struct Vec<T, S>
 where
@@ -19,6 +19,11 @@ impl<T, S> Vec<T, S>
 where
     S: SingleRangeStorage + Default,
 {
+    /// Create a new, empty [`Vec`], creating a default instance of the desired storage.
+    ///
+    /// # Panics
+    ///
+    /// If the backing allocation fails for any reason
     pub fn new() -> Vec<T, S> {
         let mut storage = S::default();
 
@@ -39,12 +44,18 @@ where
         })
     }
 
+    /// Create a new [`Vec`], with a pre-allocated capacity equal to `size`.
+    /// Uses a new default instance of the desired storage.
+    ///
+    /// # Panics
+    ///
+    /// If the backing allocation fails for any reason
     pub fn with_capacity(size: usize) -> Vec<T, S> {
         let mut storage = S::default();
 
         Vec {
             handle: storage.allocate_single(size).unwrap(),
-            len: size,
+            len: 0,
             storage,
         }
     }
@@ -54,6 +65,11 @@ impl<T, S> Vec<T, S>
 where
     S: SingleRangeStorage,
 {
+    /// Create a new, empty [`Vec`], using the provided instance of the desired storage.
+    ///
+    /// # Panics
+    ///
+    /// If the backing allocation fails for any reason
     pub fn new_in(mut storage: S) -> Vec<T, S> {
         Vec {
             handle: storage.allocate_single(0).unwrap(),
@@ -70,10 +86,16 @@ where
         })
     }
 
+    /// Create a new [`Vec`], with a pre-allocated capacity equal to `size`.
+    /// Uses the provided instance of the desired storage.
+    ///
+    /// # Panics
+    ///
+    /// If the backing allocation fails for any reason
     pub fn with_capacity_in(size: usize, mut storage: S) -> Vec<T, S> {
         Vec {
             handle: storage.allocate_single(size).unwrap(),
-            len: size,
+            len: 0,
             storage,
         }
     }

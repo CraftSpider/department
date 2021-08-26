@@ -2,7 +2,7 @@ use core::ops::Deref;
 
 use crate::collections::Vec;
 use crate::error::Result;
-use crate::traits::SingleRangeStorage;
+use crate::base::SingleRangeStorage;
 
 pub struct String<S>
 where

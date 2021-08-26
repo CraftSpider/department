@@ -4,7 +4,7 @@ use core::ptr::{NonNull, Pointee};
 
 use super::traits::StaticStorage;
 use super::StorageCell;
-use crate::traits::{ElementStorage, SingleElementStorage};
+use crate::base::{ElementStorage, SingleElementStorage};
 use crate::utils;
 
 pub struct SingleElement<S: 'static>(&'static StorageCell<S>);
