@@ -5,7 +5,7 @@ use core::mem::MaybeUninit;
 use core::ptr::{NonNull, Pointee};
 
 use crate::error::StorageError;
-use crate::traits::{ElementStorage, MultiElementStorage};
+use crate::traits::{ElementStorage, MultiElementStorage, StorageSafe};
 use crate::utils;
 
 pub struct MultiElement<S, const N: usize> {
@@ -28,7 +28,10 @@ impl<S, const N: usize> MultiElement<S, N> {
     }
 }
 
-impl<S, const N: usize> ElementStorage for MultiElement<S, N> {
+impl<S, const N: usize> ElementStorage for MultiElement<S, N>
+where
+    S: StorageSafe,
+{
     type Handle<T: ?Sized + Pointee> = MultiElementHandle<T>;
 
     unsafe fn get<T: ?Sized + Pointee>(&self, handle: Self::Handle<T>) -> NonNull<T> {
@@ -46,7 +49,10 @@ impl<S, const N: usize> ElementStorage for MultiElement<S, N> {
     }
 }
 
-impl<S, const N: usize> MultiElementStorage for MultiElement<S, N> {
+impl<S, const N: usize> MultiElementStorage for MultiElement<S, N>
+where
+    S: StorageSafe,
+{
     fn allocate<T: ?Sized + Pointee>(
         &mut self,
         meta: T::Metadata,

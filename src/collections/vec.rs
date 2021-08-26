@@ -1,4 +1,4 @@
-use core::{fmt, mem, slice};
+use core::{fmt, mem, slice, ptr};
 use core::borrow::{Borrow, BorrowMut};
 use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut, Index, IndexMut};
@@ -94,7 +94,7 @@ where
         let old_capacity = self.capacity();
 
         // TODO: Set back to just >
-        if self.len + 1 >= old_capacity {
+        if self.len + 1 > old_capacity {
             let new_capacity = if old_capacity == 0 {
                 2
             } else {
@@ -212,6 +212,9 @@ where
     S: SingleRangeStorage,
 {
     fn drop(&mut self) {
+        for i in self.as_mut() {
+            unsafe { ptr::drop_in_place(i) }
+        }
         unsafe { self.storage.deallocate_single(self.handle) }
     }
 }

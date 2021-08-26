@@ -151,11 +151,7 @@ where
         let new_start = new_range.start;
         self.lock_range(&mut used, new_range);
 
-        utils::move_within::<MaybeUninit<S>, N>(
-            unsafe { &mut *self.storage.get() },
-            old_range,
-            new_start
-        );
+        unsafe { &mut *self.storage.get() }.copy_within(old_range, new_start);
 
         Some(new_start)
     }

@@ -5,7 +5,7 @@ use core::mem::MaybeUninit;
 use core::ptr::NonNull;
 
 use crate::error::StorageError;
-use crate::traits::{MultiRangeStorage, RangeStorage};
+use crate::traits::{MultiRangeStorage, RangeStorage, StorageSafe};
 use crate::utils;
 
 pub struct MultiRange<S, const N: usize, const M: usize> {
@@ -30,7 +30,10 @@ impl<S, const N: usize, const M: usize> MultiRange<S, N, M> {
     }
 }
 
-impl<S, const N: usize, const M: usize> RangeStorage for MultiRange<S, N, M> {
+impl<S, const N: usize, const M: usize> RangeStorage for MultiRange<S, N, M>
+where
+    S: StorageSafe,
+{
     type Handle<T> = MultiRangeHandle<T>;
 
     fn maximum_capacity<T>(&self) -> usize {
@@ -45,7 +48,10 @@ impl<S, const N: usize, const M: usize> RangeStorage for MultiRange<S, N, M> {
     }
 }
 
-impl<S, const N: usize, const M: usize> MultiRangeStorage for MultiRange<S, N, M> {
+impl<S, const N: usize, const M: usize> MultiRangeStorage for MultiRange<S, N, M>
+where
+    S: StorageSafe,
+{
     fn allocate<T>(&mut self, capacity: usize) -> crate::error::Result<Self::Handle<T>> {
         utils::validate_array_layout::<T, [MaybeUninit<S>; N]>(capacity)?;
 
