@@ -1,13 +1,16 @@
-use core::{mem, ptr, fmt};
 use core::alloc::Layout;
 use core::cell::UnsafeCell;
 use core::marker::Unsize;
 use core::mem::MaybeUninit;
 use core::ops::Range;
 use core::ptr::{NonNull, Pointee};
+use core::{fmt, mem, ptr};
 
 use crate::error::{Result, StorageError};
-use crate::traits::{ElementStorage, MultiElementStorage, MultiRangeStorage, RangeStorage, SingleElementStorage, SingleRangeStorage, StorageSafe};
+use crate::traits::{
+    ElementStorage, MultiElementStorage, MultiRangeStorage, RangeStorage, SingleElementStorage,
+    SingleRangeStorage, StorageSafe,
+};
 use crate::utils;
 
 fn blocks<S>(size: usize) -> usize {
@@ -36,7 +39,6 @@ impl<S, const N: usize> StaticHeap<S, N>
 where
     S: StorageSafe,
 {
-
     fn find_lock(&self, size: usize) -> Result<usize> {
         let mut used = self.used.lock();
         let open = self.find_open(&used, size)?;
@@ -46,21 +48,17 @@ where
     }
 
     fn lock_range(&self, lock: &mut spin::MutexGuard<'_, [bool; N]>, range: Range<usize>) {
-        lock[range]
-            .iter_mut()
-            .for_each(|i| {
-                debug_assert!(*i == false);
-                *i = true
-            });
+        lock[range].iter_mut().for_each(|i| {
+            debug_assert!(!*i);
+            *i = true
+        });
     }
 
     fn unlock_range(&self, lock: &mut spin::MutexGuard<'_, [bool; N]>, range: Range<usize>) {
-        lock[range]
-            .iter_mut()
-            .for_each(|i| {
-                debug_assert!(*i == true);
-                *i = false
-            });
+        lock[range].iter_mut().for_each(|i| {
+            debug_assert!(*i);
+            *i = false
+        });
     }
 
     /// Attempt to find open space for an allocation of a given size.
@@ -115,9 +113,7 @@ where
 
         let after_old = (handle.0 + old_blocks)..(handle.0 + new_blocks);
 
-        let has_space = used[after_old.clone()]
-            .iter()
-            .all(|&i| i == false);
+        let has_space = used[after_old.clone()].iter().all(|&i| !i);
 
         if has_space {
             self.lock_range(&mut used, after_old);
@@ -258,14 +254,17 @@ where
         capacity: usize,
     ) -> Result<Self::Handle<T>> {
         debug_assert!(capacity <= handle.1);
-        self.unlock_range(&mut self.used.lock(), (handle.0 + capacity)..(handle.0 + handle.1));
+        self.unlock_range(
+            &mut self.used.lock(),
+            (handle.0 + capacity)..(handle.0 + handle.1),
+        );
         Ok(HeapHandle(handle.0, capacity))
     }
 }
 
 impl<S, const N: usize> SingleRangeStorage for &StaticHeap<S, N>
-    where
-        S: StorageSafe,
+where
+    S: StorageSafe,
 {
     fn allocate_single<T>(&mut self, capacity: usize) -> Result<Self::Handle<T>> {
         <Self as MultiRangeStorage>::allocate(self, capacity)

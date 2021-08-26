@@ -1,7 +1,7 @@
-use core::{fmt, mem, slice, ptr};
 use core::borrow::{Borrow, BorrowMut};
 use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut, Index, IndexMut};
+use core::{fmt, mem, ptr, slice};
 
 use crate::error::Result;
 use crate::traits::SingleRangeStorage;
@@ -308,8 +308,8 @@ where
 }
 
 impl<T, S, const N: usize> From<([T; N], S)> for Vec<T, S>
-    where
-        S: SingleRangeStorage,
+where
+    S: SingleRangeStorage,
 {
     fn from(val: ([T; N], S)) -> Self {
         let mut v = Vec::with_capacity_in(N, val.1);
@@ -322,9 +322,8 @@ impl<T, S> Extend<T> for Vec<T, S>
 where
     S: SingleRangeStorage,
 {
-    fn extend<I: IntoIterator<Item=T>>(&mut self, iter: I) {
-        iter.into_iter()
-            .for_each(|i| self.push(i))
+    fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
+        iter.into_iter().for_each(|i| self.push(i))
     }
 }
 

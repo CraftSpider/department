@@ -10,7 +10,7 @@ impl<S> StorageCell<S> {
         StorageCell(UnsafeCell::new(val), AtomicBool::new(false))
     }
 
-    /// Attempt to claim this StorageCell without locking. Returns
+    /// Attempt to claim this `StorageCell` without locking. Returns
     /// `Some` with the newly created storage if the cell is unclaimed,
     /// otherwise returns `None`.
     pub fn try_claim<T>(&'static self) -> Option<T>
@@ -24,11 +24,11 @@ impl<S> StorageCell<S> {
         }
     }
 
-    /// Attempt to claim this StorageCell without locking.
+    /// Attempt to claim this `StorageCell` without locking.
     ///
     /// # Panics
     ///
-    /// If the StorageCell has already been claimed, either by this or another thread.
+    /// If the `StorageCell` has already been claimed, either by this or another thread.
     pub fn claim<T>(&'static self) -> T
     where
         T: StaticStorage<S>,
@@ -49,7 +49,7 @@ impl<S> StorageCell<S> {
             .compare_exchange(false, true, Ordering::SeqCst, Ordering::Acquire);
 
         match result {
-            Ok(val) => val == false,
+            Ok(val) => !val,
             Err(_) => false,
         }
     }

@@ -8,7 +8,7 @@ pub struct String<S>
 where
     S: SingleRangeStorage,
 {
-    inner: Vec<u8, S>
+    inner: Vec<u8, S>,
 }
 
 impl<S> String<S>
@@ -16,14 +16,12 @@ where
     S: SingleRangeStorage + Default,
 {
     pub fn new() -> String<S> {
-        String {
-            inner: Vec::new()
-        }
+        String { inner: Vec::new() }
     }
 
     pub fn try_new() -> Result<String<S>> {
         Ok(String {
-            inner: Vec::try_new()?
+            inner: Vec::try_new()?,
         })
     }
 }
@@ -34,14 +32,23 @@ where
 {
     pub fn new_in(storage: S) -> String<S> {
         String {
-            inner: Vec::new_in(storage)
+            inner: Vec::new_in(storage),
         }
     }
 
     pub fn try_new_in(storage: S) -> Result<String<S>> {
         Ok(String {
-            inner: Vec::try_new_in(storage)?
+            inner: Vec::try_new_in(storage)?,
         })
+    }
+}
+
+impl<S> Default for String<S>
+where
+    S: SingleRangeStorage + Default,
+{
+    fn default() -> String<S> {
+        String::new()
     }
 }
 
@@ -51,7 +58,7 @@ where
 {
     fn from(str: &str) -> Self {
         String {
-            inner: Vec::from(str.as_bytes())
+            inner: Vec::from(str.as_bytes()),
         }
     }
 }
@@ -62,7 +69,7 @@ where
 {
     fn from(pair: (&str, S)) -> Self {
         String {
-            inner: Vec::from((pair.0.as_bytes(), pair.1))
+            inner: Vec::from((pair.0.as_bytes(), pair.1)),
         }
     }
 }

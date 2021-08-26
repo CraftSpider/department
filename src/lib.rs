@@ -5,8 +5,6 @@
 #![feature(coerce_unsized)]
 #![feature(cfg_target_has_atomic)]
 #![feature(maybe_uninit_uninit_array)]
-#![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(feature = "alloc", feature(allocator_api))]
 #![warn(
     // missing_docs,
     elided_lifetimes_in_paths,
@@ -24,6 +22,8 @@
     clippy::cloned_instead_of_copied,
     clippy::unreadable_literal
 )]
+#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(feature = "alloc", feature(allocator_api))]
 
 #[cfg(feature = "alloc")]
 extern crate alloc as rs_alloc;
@@ -38,7 +38,7 @@ pub mod string;
 
 #[cfg(feature = "alloc")]
 pub mod alloc;
-mod error;
+pub mod error;
 pub mod inline;
 #[cfg(target_has_atomic = "8")]
 pub mod statics;

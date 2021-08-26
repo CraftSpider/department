@@ -1,7 +1,7 @@
-use core::{array, ptr, fmt};
 use core::marker::Unsize;
 use core::mem::MaybeUninit;
 use core::ptr::{NonNull, Pointee};
+use core::{array, fmt, ptr};
 
 use crate::error;
 use crate::error::StorageError;
@@ -66,7 +66,10 @@ pub trait SingleElementStorage: ElementStorage {
 }
 
 pub trait MultiElementStorage: ElementStorage {
-    fn allocate<T: ?Sized + Pointee>(&mut self, meta: T::Metadata) -> error::Result<Self::Handle<T>>;
+    fn allocate<T: ?Sized + Pointee>(
+        &mut self,
+        meta: T::Metadata,
+    ) -> error::Result<Self::Handle<T>>;
     unsafe fn deallocate<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>);
 
     fn create<T: Pointee>(&mut self, value: T) -> core::result::Result<Self::Handle<T>, T> {

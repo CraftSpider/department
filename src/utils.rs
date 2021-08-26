@@ -2,8 +2,8 @@ use core::alloc::Layout;
 use core::ptr::Pointee;
 use core::{mem, ptr};
 
-use crate::error::StorageError;
 use crate::error::Result;
+use crate::error::StorageError;
 
 pub(crate) fn layout_of<T: ?Sized + Pointee>(meta: T::Metadata) -> Layout {
     let pointer = ptr::from_raw_parts(ptr::null_mut(), meta);
