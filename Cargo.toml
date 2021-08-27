@@ -1,6 +1,6 @@
 [package]
 name = "department"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2018"
 description = "Implementation of the proposed Storages API"
 license = "MIT OR Apache-2.0"
@@ -16,4 +16,4 @@ std = ["alloc"]
 alloc = []
 
 [dependencies]
-spin = "0.9"
+spin = { version = "0.9", default-features = false, features = ["spin_mutex", "mutex"] }
