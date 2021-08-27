@@ -1,6 +1,6 @@
 [package]
 name = "department"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2018"
 description = "Implementation of the proposed Storages API"
 license = "MIT OR Apache-2.0"
