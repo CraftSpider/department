@@ -1,12 +1,20 @@
 //! An implementation of the proposed Storages API, including both Storage implementations
 //! as well as common collections built on top of it.
 
+// Needed to implement the custom unsizing of `Box` and similar
 #![feature(unsize)]
+// Needed for `::Handle<T>`, which is a basis of the whole interface
 #![feature(generic_associated_types)]
+// Needed to (de)construct unsized pointers and store their metadata safely
 #![feature(ptr_metadata)]
+// Needed to get a layout from just a type and metadata in `utils::layout_of`
 #![feature(layout_for_ptr)]
+// Needed to implement unsizing coercion via `Box`
 #![feature(coerce_unsized)]
+// Needed so we can avoid providing static storages on non-atomic platforms
 #![feature(cfg_target_has_atomic)]
+// A helper for initializing arrays. Could be replaced, but low priority compared to above
+// requirements.
 #![feature(maybe_uninit_uninit_array)]
 #![warn(
     missing_docs,
