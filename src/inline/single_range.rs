@@ -7,11 +7,13 @@ use core::{fmt, mem};
 use crate::base::{RangeStorage, SingleRangeStorage, StorageSafe};
 use crate::utils;
 
+/// Inline single-range storage implementation
 pub struct SingleRange<S, const N: usize> {
     storage: UnsafeCell<[MaybeUninit<S>; N]>,
 }
 
 impl<S, const N: usize> SingleRange<S, N> {
+    /// Create a new `SingleRange`
     pub fn new() -> SingleRange<S, N> {
         SingleRange {
             storage: UnsafeCell::new(MaybeUninit::uninit_array::<N>()),

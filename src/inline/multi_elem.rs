@@ -8,12 +8,14 @@ use crate::base::{ElementStorage, MultiElementStorage, StorageSafe};
 use crate::error::StorageError;
 use crate::utils;
 
+/// Inline multi-element storage implementation
 pub struct MultiElement<S, const N: usize> {
     used: [bool; N],
     storage: [UnsafeCell<MaybeUninit<S>>; N],
 }
 
 impl<S, const N: usize> MultiElement<S, N> {
+    /// Create a new `MultiElement`
     pub fn new() -> MultiElement<S, N> {
         let mut storage: MaybeUninit<[_; N]> = MaybeUninit::uninit();
         for i in 0..N {

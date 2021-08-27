@@ -7,6 +7,7 @@ use super::StorageCell;
 use crate::base::{ElementStorage, SingleElementStorage};
 use crate::utils;
 
+/// Static single-element storage implementation
 pub struct SingleElement<S: 'static>(&'static StorageCell<S>);
 
 impl<S: 'static> StaticStorage<S> for SingleElement<S> {

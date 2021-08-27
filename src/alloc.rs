@@ -1,3 +1,13 @@
+//! Storage implementation that is backed by an [`Allocator`]
+//!
+//! # Advantages
+//! - Only takes up as much space at runtime as it actually needed
+//! - Doesn't increase binary or stack sizes
+//! - Handles are standard pointers
+//!
+//! # Disadvantages
+//! - Unavailable on some embedded or 'bare-metal' platforms
+
 use core::alloc::{Allocator, Layout};
 use core::marker::Unsize;
 use core::mem::MaybeUninit;

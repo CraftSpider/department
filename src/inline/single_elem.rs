@@ -8,11 +8,13 @@ use crate::base::{ElementStorage, SingleElementStorage, StorageSafe};
 use crate::error::Result;
 use crate::utils;
 
+/// Inline single-element storage implementation
 pub struct SingleElement<S> {
     storage: UnsafeCell<MaybeUninit<S>>,
 }
 
 impl<S> SingleElement<S> {
+    /// Create a new `SingleElement`
     pub fn new() -> SingleElement<S> {
         SingleElement {
             storage: UnsafeCell::new(MaybeUninit::uninit()),

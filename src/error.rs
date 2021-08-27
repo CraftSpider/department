@@ -1,3 +1,5 @@
+//! The common error handling types used by `department`
+
 use core::fmt;
 
 /// A result with [`StorageError`] as its error type
@@ -18,6 +20,8 @@ pub enum StorageError {
 }
 
 impl StorageError {
+    /// Create a `StorageError` which represents insufficient space where the requested space
+    /// is greater than the maximum possible storage space ([`usize::MAX`])
     pub fn exceeds_max() -> StorageError {
         StorageError::InsufficientSpace(0, Some(usize::MAX))
     }

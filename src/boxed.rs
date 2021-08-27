@@ -1,3 +1,5 @@
+//! A storage-based implementation of [`std::boxed`]
+
 use core::alloc::Layout;
 use core::borrow::{Borrow, BorrowMut};
 use core::cmp::Ordering;
@@ -9,7 +11,11 @@ use core::{fmt, mem, ptr};
 
 use crate::base::SingleElementStorage;
 
-// TODO: Default to allocation?
+/// Storage-based implementation of [`Box`](std::boxed::Box).
+///
+/// Note that unsizing coercion currently isn't expressive enough to support all storage types,
+/// so the implementation provides a `coerce` method which can be used to emulate the same
+/// functionality.
 pub struct Box<T: ?Sized + Pointee, S: SingleElementStorage> {
     handle: S::Handle<T>,
     storage: ManuallyDrop<S>,
@@ -36,6 +42,8 @@ where
         }
     }
 
+    /// Attempt to create a new [`Box`] containing the provided value, creating a default instance
+    /// of the desired storage.
     pub fn try_new(val: T) -> Result<Box<T, S>, T> {
         let mut storage = S::default();
         Ok(Box {
@@ -64,6 +72,7 @@ where
         }
     }
 
+    /// Attempt to create a new [`Box`] containing the provided value, in the provided storage.
     pub fn try_new_in(val: T, mut storage: S) -> Result<Box<T, S>, (T, S)> {
         let handle = match storage.create_single(val) {
             Ok(handle) => handle,
@@ -82,6 +91,8 @@ where
     T: ?Sized + Pointee,
     S: SingleElementStorage,
 {
+    /// Attempt to move the value from this `Box` into another one using a different backing
+    /// storage. In case of failure, the original `Box` is returned unchanged.
     pub fn try_in<Ns>(mut self, mut new_storage: Ns) -> Result<Box<T, Ns>, (Box<T, S>, Ns)>
     where
         Ns: SingleElementStorage,
@@ -115,6 +126,8 @@ where
         })
     }
 
+    /// Perform an unsizing operation on `self`. A temporary solution to limitations with
+    /// manual unsizing.
     pub fn coerce<U: ?Sized>(mut self) -> Box<U, S>
     where
         T: Unsize<U>,

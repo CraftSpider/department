@@ -6,6 +6,7 @@ use core::{fmt, mem, ptr, slice};
 use crate::base::SingleRangeStorage;
 use crate::error::Result;
 
+/// Storage based implementation of [`Vec`](`std::vec::Vec`)
 pub struct Vec<T, S>
 where
     S: SingleRangeStorage,
@@ -34,6 +35,7 @@ where
         }
     }
 
+    /// Attempt to create a new, empty [`Vec`], creating a default instance of the desired storage.
     pub fn try_new() -> Result<Vec<T, S>> {
         let mut storage = S::default();
 
@@ -65,7 +67,7 @@ impl<T, S> Vec<T, S>
 where
     S: SingleRangeStorage,
 {
-    /// Create a new, empty [`Vec`], using the provided instance of the desired storage.
+    /// Create a new, empty [`Vec`], using the provided storage instance.
     ///
     /// # Panics
     ///
@@ -78,6 +80,7 @@ where
         }
     }
 
+    /// Attempt to create a new, empty [`Vec`], using the provided storage instance.
     pub fn try_new_in(mut storage: S) -> Result<Vec<T, S>> {
         Ok(Vec {
             handle: storage.allocate_single(0)?,
@@ -100,22 +103,25 @@ where
         }
     }
 
+    /// Check if the vector contains no element
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
+    /// Get the current length of the vector
     pub fn len(&self) -> usize {
         self.len
     }
 
+    /// Check the vector's current capacity, the maximum length it can grow to without reallocating
     pub fn capacity(&self) -> usize {
         unsafe { self.storage.get(self.handle).as_ref().len() }
     }
 
+    /// Add a new element onto the end of the vector
     pub fn push(&mut self, val: T) {
         let old_capacity = self.capacity();
 
-        // TODO: Set back to just >
         if self.len + 1 > old_capacity {
             let new_capacity = if old_capacity == 0 {
                 2
@@ -136,6 +142,7 @@ where
         self.len += 1;
     }
 
+    /// Remove the element at the end of the vector and return it
     pub fn pop(&mut self) -> T {
         self.len -= 1;
 
@@ -143,10 +150,12 @@ where
         unsafe { mem::replace(&mut ptr.as_mut()[self.len], MaybeUninit::uninit()).assume_init() }
     }
 
+    /// Get an iterator over this vector
     pub fn iter(&self) -> impl Iterator<Item = &T> {
         self.as_ref().iter()
     }
 
+    /// Get a mutable iterator over this vector
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
         self.as_mut().iter_mut()
     }

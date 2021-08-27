@@ -9,7 +9,7 @@
 #![feature(cfg_target_has_atomic)]
 #![feature(maybe_uninit_uninit_array)]
 #![warn(
-    // missing_docs,
+    missing_docs,
     elided_lifetimes_in_paths,
     explicit_outlives_requirements,
     missing_abi,
@@ -35,6 +35,7 @@ mod utils;
 
 pub mod base;
 
+// TODO: Default to allocation?
 pub mod boxed;
 pub mod collections;
 pub mod string;

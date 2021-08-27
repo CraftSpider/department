@@ -1,9 +1,12 @@
+//! A storage-based implementation of [`std::string`]
+
 use core::ops::Deref;
 
 use crate::base::SingleRangeStorage;
 use crate::collections::Vec;
 use crate::error::Result;
 
+/// Storage based implementation of [`String`](std::string::String)
 pub struct String<S>
 where
     S: SingleRangeStorage,
@@ -15,10 +18,16 @@ impl<S> String<S>
 where
     S: SingleRangeStorage + Default,
 {
+    /// Create a new, empty `String` with a default instance of the desired storage
+    ///
+    /// # Panics
+    ///
+    /// If the backing allocation fails for any reason
     pub fn new() -> String<S> {
         String { inner: Vec::new() }
     }
 
+    /// Attempt to create a new, empty `String` with a default instance of the desired storage
     pub fn try_new() -> Result<String<S>> {
         Ok(String {
             inner: Vec::try_new()?,
@@ -30,12 +39,18 @@ impl<S> String<S>
 where
     S: SingleRangeStorage,
 {
+    /// Create a new, empty `String` with the provided storage instance
+    ///
+    /// # Panics
+    ///
+    /// If the backing allocation fails for any reason
     pub fn new_in(storage: S) -> String<S> {
         String {
             inner: Vec::new_in(storage),
         }
     }
 
+    /// Attempt to create a new, empty `String` with the provided storage instance
     pub fn try_new_in(storage: S) -> Result<String<S>> {
         Ok(String {
             inner: Vec::try_new_in(storage)?,

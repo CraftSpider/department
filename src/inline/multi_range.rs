@@ -8,12 +8,14 @@ use crate::base::{MultiRangeStorage, RangeStorage, StorageSafe};
 use crate::error::StorageError;
 use crate::utils;
 
+/// Inline multi-range storage implementation
 pub struct MultiRange<S, const N: usize, const M: usize> {
     used: [bool; M],
     storage: [UnsafeCell<[MaybeUninit<S>; N]>; M],
 }
 
 impl<S, const N: usize, const M: usize> MultiRange<S, N, M> {
+    /// Create a new `MultiRange`
     pub fn new() -> MultiRange<S, N, M> {
         let mut storage: MaybeUninit<[_; M]> = MaybeUninit::uninit();
         for i in 0..M {

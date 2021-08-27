@@ -87,7 +87,7 @@ pub trait SingleElementStorage: ElementStorage {
     ///
     /// # Safety
     ///
-    /// The provided handle must be valid. See [`Self::Handle`].
+    /// The provided handle must be valid. See [`Self::Handle`](`ElementStorage::Handle`).
     unsafe fn deallocate_single<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>);
 
     /// Attempt to allocate an element into this storage, and initialize it with
@@ -141,7 +141,7 @@ pub trait MultiElementStorage: ElementStorage {
     ///
     /// # Safety
     ///
-    /// The provided handle must be valid. See [`Self::Handle`].
+    /// The provided handle must be valid. See [`Self::Handle`](`ElementStorage::Handle`).
     unsafe fn deallocate<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>);
 
     /// Attempt to allocate an element into this storage, and initialize it with
@@ -261,7 +261,7 @@ pub trait SingleRangeStorage: RangeStorage {
     ///
     /// # Safety
     ///
-    /// The provided handle must be valid. See [`Self::Handle`].
+    /// The provided handle must be valid. See [`Self::Handle`](`RangeStorage::Handle`).
     unsafe fn deallocate_single<T>(&mut self, handle: Self::Handle<T>);
 
     /// Attempt to allocate a range into this storage, and initialize it with
@@ -296,7 +296,7 @@ pub trait MultiRangeStorage: RangeStorage {
     ///
     /// # Safety
     ///
-    /// The provided handle must be valid. See [`Self::Handle`].
+    /// The provided handle must be valid. See [`Self::Handle`](`RangeStorage::Handle`).
     unsafe fn deallocate<T>(&mut self, handle: Self::Handle<T>);
 
     /// Attempt to allocate a range into this storage, and initialize it with
