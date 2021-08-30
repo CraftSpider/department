@@ -156,7 +156,7 @@ where
     S: SingleElementStorage,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}", self.deref())
+        write!(f, "{:?}", self.as_ref())
     }
 }
 
@@ -166,7 +166,7 @@ where
     S: SingleElementStorage,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.deref())
+        write!(f, "{}", self.as_ref())
     }
 }
 
