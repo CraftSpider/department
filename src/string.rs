@@ -1,5 +1,6 @@
 //! A storage-based implementation of [`std::string`]
 
+use core::fmt;
 use core::ops::Deref;
 
 use crate::base::SingleRangeStorage;
@@ -55,6 +56,24 @@ where
         Ok(String {
             inner: Vec::try_new_in(storage)?,
         })
+    }
+}
+
+impl<S> fmt::Debug for String<S>
+where
+    S: SingleRangeStorage,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", &*self)
+    }
+}
+
+impl<S> fmt::Display for String<S>
+    where
+        S: SingleRangeStorage,
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", &*self)
     }
 }
 

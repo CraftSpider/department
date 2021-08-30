@@ -16,7 +16,7 @@ impl<S, const N: usize> SingleRange<S, N> {
     /// Create a new `SingleRange`
     pub fn new() -> SingleRange<S, N> {
         SingleRange {
-            storage: UnsafeCell::new(MaybeUninit::uninit_array::<N>()),
+            storage: UnsafeCell::new(<[(); N]>::map([(); N], |_| MaybeUninit::uninit())),
         }
     }
 }

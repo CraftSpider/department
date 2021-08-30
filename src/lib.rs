@@ -11,7 +11,8 @@
 #![feature(layout_for_ptr)]
 // Needed to implement unsizing coercion via `Box`
 #![feature(coerce_unsized)]
-// Needed so we can avoid providing static storages on non-atomic platforms
+// Used so we can avoid providing static storages on non-atomic platforms. Could be replaced either
+// by just not checking, or using a crate feature, or other detection
 #![feature(cfg_target_has_atomic)]
 // A helper for initializing arrays. Could be replaced, but low priority compared to above
 // requirements.
