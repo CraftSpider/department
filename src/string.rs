@@ -69,8 +69,8 @@ where
 }
 
 impl<S> fmt::Display for String<S>
-    where
-        S: SingleRangeStorage,
+where
+    S: SingleRangeStorage,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", &*self)
