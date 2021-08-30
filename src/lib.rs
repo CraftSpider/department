@@ -11,9 +11,6 @@
 #![feature(layout_for_ptr)]
 // Needed to implement unsizing coercion via `Box`
 #![feature(coerce_unsized)]
-// Used so we can avoid providing static storages on non-atomic platforms. Could be replaced either
-// by just not checking, or using a crate feature, or other detection
-#![feature(cfg_target_has_atomic)]
 // A helper for initializing arrays. Could be replaced, but low priority compared to above
 // requirements.
 #![feature(maybe_uninit_uninit_array)]
@@ -44,14 +41,21 @@ mod utils;
 
 pub mod base;
 
-// TODO: Default to allocation?
-pub mod boxed;
-pub mod collections;
-pub mod string;
+// Storage implementations
 
 #[cfg(feature = "alloc")]
 pub mod alloc;
 pub mod error;
+#[cfg(feature = "inline")]
 pub mod inline;
-#[cfg(target_has_atomic = "8")]
+#[cfg(all(feature = "static"))]
 pub mod statics;
+
+// Collection implementations
+
+#[cfg(feature = "box")]
+pub mod boxed;
+#[cfg(any(feature = "vec"))]
+pub mod collections;
+#[cfg(feature = "string")]
+pub mod string;

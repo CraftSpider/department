@@ -11,9 +11,22 @@ repository = "https://github.com/CraftSpider/department"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["std"]
-std = ["alloc"]
+default = ["std", "all_storages", "all_collections"]
+
+# Optional std support
+std = []
+
+# Different storage implementations, which may have their own requirements
+all_storages = ["inline", "static", "alloc"]
+inline = []
+static = []
 alloc = []
+
+# Different collection implementations
+all_collections = ["box", "vec", "string"]
+box = []
+vec = []
+string = []
 
 [dependencies]
 spin = { version = "0.9", default-features = false, features = ["spin_mutex", "mutex"] }
