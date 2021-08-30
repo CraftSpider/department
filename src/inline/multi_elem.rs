@@ -17,15 +17,9 @@ pub struct MultiElement<S, const N: usize> {
 impl<S, const N: usize> MultiElement<S, N> {
     /// Create a new `MultiElement`
     pub fn new() -> MultiElement<S, N> {
-        let mut storage: MaybeUninit<[_; N]> = MaybeUninit::uninit();
-        for i in 0..N {
-            unsafe { (*storage.as_mut_ptr())[i] = UnsafeCell::new(MaybeUninit::uninit()) };
-        }
-        let storage = unsafe { storage.assume_init() };
-
         MultiElement {
             used: [false; N],
-            storage,
+            storage: <[(); N]>::map([(); N], |_| UnsafeCell::new(MaybeUninit::uninit())),
         }
     }
 }

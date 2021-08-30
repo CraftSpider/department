@@ -30,6 +30,9 @@ unsafe impl StorageSafe for usize {}
 
 unsafe impl<T: StorageSafe, const N: usize> StorageSafe for [T; N] {}
 
+// TODO: These should probably be unsafe traits, like the `Allocator` trait, as impls must uphold
+//       certain guarantees
+
 /// Storages supporting single, possibly unsized, elements.
 pub trait ElementStorage {
     /// The type of 'handles' given out by this storage.
@@ -103,10 +106,10 @@ pub trait SingleElementStorage: ElementStorage {
             Err(e) => return Err((e, value)),
         };
 
-        //  SAFETY: `handle` is valid.
+        // SAFETY: `handle` is valid, as allocate just succeeded.
         let pointer = unsafe { self.get(handle) };
 
-        //  SAFETY: `pointer` points to a suitable memory area for `T`.
+        // SAFETY: `pointer` points to a suitable memory area for `T` by impl guarantees.
         unsafe { ptr::write(pointer.as_ptr(), value) };
 
         Ok(handle)
@@ -119,10 +122,10 @@ pub trait SingleElementStorage: ElementStorage {
     /// All the caveats of [`SingleElementStorage::deallocate_single`], as well as
     /// the requirement that the handle must contain a valid instance of `T`.
     unsafe fn drop_single<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>) {
-        // SAFETY: `handle` is assumed to be valid.
+        // SAFETY: `handle` is valid by safety requirements.
         let element = self.get(handle);
 
-        // SAFETY: `element` is valid.
+        // SAFETY: `element` is valid by safety requirements.
         ptr::drop_in_place(element.as_ptr());
 
         self.deallocate_single(handle);
@@ -150,10 +153,10 @@ pub trait MultiElementStorage: ElementStorage {
         let meta = NonNull::from(&value).to_raw_parts().1;
 
         if let Ok(handle) = self.allocate(meta) {
-            //  SAFETY: `handle` is valid.
+            //  SAFETY: `handle` is valid, as allocate succeeded.
             let pointer = unsafe { self.get(handle) };
 
-            //  SAFETY: `pointer` points to a suitable memory area for `T`.
+            //  SAFETY: `pointer` points to a suitable memory area for `T` by impl guarantees.
             unsafe { ptr::write(pointer.as_ptr(), value) };
 
             Ok(handle)
@@ -169,10 +172,10 @@ pub trait MultiElementStorage: ElementStorage {
     /// All the caveats of [`SingleElementStorage::deallocate_single`], as well as
     /// the requirement that the handle must contain a valid instance of `T`.
     unsafe fn drop<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>) {
-        // SAFETY: `handle` is assumed to be valid.
+        // SAFETY: `handle` is valid by safety requirements.
         let element = self.get(handle);
 
-        // SAFETY: `element` is valid.
+        // SAFETY: `element` is valid by safety requirements.
         ptr::drop_in_place(element.as_ptr());
 
         self.deallocate(handle);
@@ -275,10 +278,10 @@ pub trait SingleRangeStorage: RangeStorage {
             Err(e) => return Err((e, arr)),
         };
 
-        // SAFETY: `handle` is valid.
+        // SAFETY: `handle` is valid as allocate succeeded.
         let mut pointer: NonNull<[MaybeUninit<T>]> = unsafe { self.get(handle) };
 
-        // SAFETY: `pointer` points to a suitable memory area for `T`.
+        // SAFETY: `pointer` points to a suitable memory area for `T` by impl guarantee.
         for (idx, val) in array::IntoIter::new(arr).enumerate() {
             unsafe { pointer.as_mut()[idx].write(val) };
         }
@@ -306,10 +309,10 @@ pub trait MultiRangeStorage: RangeStorage {
         arr: [T; N],
     ) -> core::result::Result<Self::Handle<T>, [T; N]> {
         if let Ok(handle) = self.allocate(N) {
-            // SAFETY: `handle` is valid.
+            // SAFETY: `handle` is valid, as allocate succeeded.
             let mut pointer: NonNull<[MaybeUninit<T>]> = unsafe { self.get(handle) };
 
-            // SAFETY: `pointer` points to a suitable memory area for `T`.
+            // SAFETY: `pointer` points to a suitable memory area for `T` by impl guarantee.
             for (idx, val) in array::IntoIter::new(arr).enumerate() {
                 unsafe { pointer.as_mut()[idx].write(val) };
             }

@@ -99,14 +99,17 @@ where
     {
         let layout = Layout::for_value(&*self);
 
+        // SAFETY: Our handle is guaranteed valid by internal invariant
         let (old_ptr, meta) = unsafe { self.storage.get(self.handle).to_raw_parts() };
         let new_handle = match new_storage.allocate_single::<T>(meta) {
             Ok(handle) => handle,
             Err(_) => return Err((self, new_storage)),
         };
 
+        // SAFETY: New handle is valid because allocate just succeeded
         let new_ptr = unsafe { new_storage.get(new_handle).to_raw_parts().0 };
 
+        // SAFETY: Handles are from different allocations
         unsafe {
             ptr::copy_nonoverlapping(
                 old_ptr.as_ptr().cast::<u8>(),
@@ -115,9 +118,11 @@ where
             )
         };
 
+        // SAFETY: Our handle is guaranteed valid by internal invariant
         unsafe { self.storage.deallocate_single(self.handle) };
-
+        // SAFETY: We consume self, so no one will touch us after this
         unsafe { ManuallyDrop::drop(&mut self.storage) };
+        // Don't run drop as we manually deallocated
         mem::forget(self);
 
         Ok(Box {
@@ -132,9 +137,11 @@ where
     where
         T: Unsize<U>,
     {
+        // SAFETY: Out handle is guaranteed valid by internal invariant
         let handle = unsafe { self.storage.coerce::<_, U>(self.handle) };
+        // SAFETY: We consume self, so no one will touch us after this
         let storage = unsafe { ManuallyDrop::take(&mut self.storage) };
-        // Don't run drop for the stolen value
+        // Don't run drop for the old handle
         mem::forget(self);
         Box {
             handle,
@@ -220,7 +227,7 @@ where
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
-        // SAFETY: Handle is guaranteed valid
+        // SAFETY: Handle is guaranteed valid by internal invariant
         unsafe { self.storage.get(self.handle).as_ref() }
     }
 }
@@ -231,7 +238,7 @@ where
     S: SingleElementStorage,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        // SAFETY: Handle is guaranteed valid
+        // SAFETY: Handle is guaranteed valid by internal invariant
         unsafe { self.storage.get(self.handle).as_mut() }
     }
 }
@@ -242,9 +249,9 @@ where
     S: SingleElementStorage,
 {
     fn drop(&mut self) {
-        // SAFETY: Handle is guaranteed valid
+        // SAFETY: Handle is guaranteed valid by internal invariant
         unsafe { self.storage.drop_single(self.handle) };
-        // SAFETY: Storage is guaranteed valid
+        // SAFETY: This is `drop`, so we know we're the last observer
         unsafe { ManuallyDrop::drop(&mut self.storage) };
     }
 }

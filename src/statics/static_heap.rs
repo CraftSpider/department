@@ -21,6 +21,9 @@ fn blocks_for<S, T>(capacity: usize) -> usize {
     (mem::size_of::<T>() * capacity + 3) / mem::size_of::<S>()
 }
 
+// TODO: Safety comments for this. There may be race conditions with the UnsafeCell, should
+//       find a way to better architect for easier safety reasoning
+
 /// A storage based on a static variable, supporting heap-like behavior but compiled into
 /// the binary. Useful for environments with no allocator support but sufficient space for a
 /// slightly larger program.

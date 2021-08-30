@@ -115,7 +115,10 @@ where
 
     /// Check the vector's current capacity, the maximum length it can grow to without reallocating
     pub fn capacity(&self) -> usize {
-        unsafe { self.storage.get(self.handle).as_ref().len() }
+        // SAFETY: Handle is guaranteed valid by internal invariant
+        let ptr = unsafe { self.storage.get(self.handle) };
+        // SAFETY: Valid handles are guaranteed to return a valid pointer
+        unsafe { ptr.as_ref().len() }
     }
 
     /// Add a new element onto the end of the vector
@@ -129,6 +132,8 @@ where
                 old_capacity * 2
             };
 
+            // SAFETY: Handle is guaranteed valid by internal invariant
+            //         New capacity cannot be less than old due to how it's calculated
             unsafe {
                 self.handle = self
                     .storage
@@ -137,7 +142,9 @@ where
             }
         }
 
+        // SAFETY: Handle is guaranteed valid by internal invariant
         let mut ptr = unsafe { self.storage.get(self.handle) };
+        // SAFETY: Valid handles are guaranteed to return valid pointers
         unsafe { ptr.as_mut()[self.len] = MaybeUninit::new(val) };
         self.len += 1;
     }
@@ -146,8 +153,13 @@ where
     pub fn pop(&mut self) -> T {
         self.len -= 1;
 
+        // SAFETY: Handle is guaranteed valid by internal invariant
         let mut ptr = unsafe { self.storage.get(self.handle) };
-        unsafe { mem::replace(&mut ptr.as_mut()[self.len], MaybeUninit::uninit()).assume_init() }
+        // SAFETY: Valid handles are guaranteed to return valid pointers
+        let item = unsafe { &mut ptr.as_mut()[self.len] };
+        let out = mem::replace(item, MaybeUninit::uninit());
+        // SAFETY: Popped element must be initialized, as length counts initialized items
+        unsafe { out.assume_init() }
     }
 
     /// Get an iterator over this vector
@@ -223,7 +235,10 @@ where
     type Target = [T];
 
     fn deref(&self) -> &Self::Target {
+        // SAFETY: Handle is guaranteed valid by internal invariant
         let ptr = unsafe { self.storage.get(self.handle) };
+        // SAFETY: Valid handles are guaranteed to return valid pointers
+        //         Length counts initialized items, safe to interpret as `T`
         unsafe { slice::from_raw_parts(ptr.cast().as_ptr(), self.len) }
     }
 }
@@ -233,7 +248,10 @@ where
     S: SingleRangeStorage,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
+        // SAFETY: Handle is guaranteed valid by internal invariant
         let ptr = unsafe { self.storage.get(self.handle) };
+        // SAFETY: Valid handles are guaranteed to return valid pointers
+        //         Length counts initialized items, safe to interpret as `T`
         unsafe { slice::from_raw_parts_mut(ptr.cast().as_ptr(), self.len) }
     }
 }
@@ -244,8 +262,10 @@ where
 {
     fn drop(&mut self) {
         for i in self.as_mut() {
+            // SAFETY: This is `drop`, so no one else will observe these values
             unsafe { ptr::drop_in_place(i) }
         }
+        // SAFETY: Handle is guaranteed valid by internal invariant
         unsafe { self.storage.deallocate_single(self.handle) }
     }
 }
@@ -257,12 +277,7 @@ where
     type Output = T;
 
     fn index(&self, index: usize) -> &Self::Output {
-        if index >= self.len {
-            panic!("Index out of range: Length {}, index {}", self.len, index);
-        }
-
-        // SAFETY: We know items up to len are init
-        unsafe { self.storage.get(self.handle).as_ref()[index].assume_init_ref() }
+        &self.as_ref()[index]
     }
 }
 
@@ -271,11 +286,7 @@ where
     S: SingleRangeStorage,
 {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        if index >= self.len {
-            panic!("Index out of range: Length {}, index {}", self.len, index);
-        }
-
-        unsafe { self.storage.get(self.handle).as_mut()[index].assume_init_mut() }
+        &mut self.as_mut()[index]
     }
 }
 
@@ -290,7 +301,10 @@ where
             .allocate_single(self.len())
             .expect("Couldn't allocate new array");
 
-        let new_iter = unsafe { new_storage.get(new_handle).as_mut().iter_mut() };
+        // SAFETY: New handle is guaranteed valid as allocate succeeded
+        let mut ptr = unsafe { new_storage.get(new_handle) };
+        // SAFETY: Valid handles are guaranteed to return valid pointers
+        let new_iter = unsafe { ptr.as_mut().iter_mut() };
         for (old, new) in self.as_ref().iter().zip(new_iter) {
             new.write(old.clone());
         }
