@@ -14,6 +14,8 @@
 // A helper for initializing arrays. Could be replaced, but low priority compared to above
 // requirements.
 #![feature(maybe_uninit_uninit_array)]
+
+#![feature(maybe_uninit_extra, new_uninit)]
 #![warn(
     missing_docs,
     elided_lifetimes_in_paths,
@@ -40,12 +42,12 @@ extern crate alloc as rs_alloc;
 mod utils;
 
 pub mod base;
+pub mod error;
 
 // Storage implementations
 
 #[cfg(feature = "alloc")]
 pub mod alloc;
-pub mod error;
 #[cfg(feature = "inline")]
 pub mod inline;
 #[cfg(all(feature = "static"))]

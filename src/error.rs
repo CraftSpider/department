@@ -8,14 +8,14 @@ pub type Result<T> = core::result::Result<T, StorageError>;
 /// The error type returned by storages upon allocation failure
 #[derive(Debug)]
 pub enum StorageError {
-    /// The allocator didn't have enough space for the requested allocation
+    /// The storage didn't have enough space for the requested allocation
     InsufficientSpace(usize, Option<usize>),
-    /// The allocator alignment wasn't valid for the requested allocation
+    /// The storage alignment wasn't valid for the requested allocation
     InvalidAlign(usize, usize),
-    /// The maximum number of items have been allocated at once. *Sometimes* freeing existing items
+    /// The maximum number of items have been stored at once. *Sometimes* freeing existing items
     /// can fix this.
     NoSlots,
-    /// The requested operation isn't supported by this allocator.
+    /// The requested operation isn't supported by this storage.
     Unimplemented,
 }
 
@@ -33,7 +33,9 @@ impl fmt::Display for StorageError {
             StorageError::InsufficientSpace(expected, available) => {
                 write!(f, "Insufficient space in storage. ")?;
                 match available {
-                    Some(usize::MAX) => write!(f, "Expected more than usize::MAX",)?,
+                    Some(usize::MAX) if *expected == 0 => {
+                        write!(f, "Expected more than usize::MAX",)?
+                    }
                     Some(available) => write!(
                         f,
                         "Expected {}, but only {} is available",
