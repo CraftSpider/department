@@ -282,7 +282,7 @@ pub trait SingleRangeStorage: RangeStorage {
         let mut pointer: NonNull<[MaybeUninit<T>]> = unsafe { self.get(handle) };
 
         // SAFETY: `pointer` points to a suitable memory area for `T` by impl guarantee.
-        for (idx, val) in array::IntoIter::new(arr).enumerate() {
+        for (idx, val) in arr.into_iter().enumerate() {
             unsafe { pointer.as_mut()[idx].write(val) };
         }
 

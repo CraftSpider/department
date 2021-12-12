@@ -1,7 +1,7 @@
 [package]
 name = "department"
 version = "0.1.2"
-edition = "2018"
+edition = "2021"
 description = "Implementation of the proposed Storages API"
 license = "MIT OR Apache-2.0"
 keywords = ["allocator", "collection", "nightly", "storage", "no_std"]
