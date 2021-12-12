@@ -15,7 +15,6 @@
 // requirements.
 #![feature(maybe_uninit_uninit_array)]
 
-#![feature(maybe_uninit_extra, new_uninit)]
 #![warn(
     missing_docs,
     elided_lifetimes_in_paths,

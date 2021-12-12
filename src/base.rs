@@ -7,7 +7,7 @@
 use core::marker::Unsize;
 use core::mem::MaybeUninit;
 use core::ptr::{NonNull, Pointee};
-use core::{array, fmt, ptr};
+use core::{fmt, ptr};
 
 use crate::error;
 use crate::error::StorageError;
@@ -313,7 +313,7 @@ pub trait MultiRangeStorage: RangeStorage {
             let mut pointer: NonNull<[MaybeUninit<T>]> = unsafe { self.get(handle) };
 
             // SAFETY: `pointer` points to a suitable memory area for `T` by impl guarantee.
-            for (idx, val) in array::IntoIter::new(arr).enumerate() {
+            for (idx, val) in arr.into_iter().enumerate() {
                 unsafe { pointer.as_mut()[idx].write(val) };
             }
 
