@@ -32,6 +32,8 @@ In the future, more types of storages and collections need to be added, hopefull
 up to `std` parity. Tests should be added for all storage types, with coverage for most
 edge cases (ZST, alignment requirements, etc).
 
+More design is needed around how to handle leaking, LeaksafeStorage, etc.
+
 ### Missing Storages
 
 `debug`, a storage which wraps another storage and provides debug logging or callbacks on allocations/deallocations

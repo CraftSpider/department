@@ -4,10 +4,7 @@
 //! Great for small-value optimization, storing inline if an item is small but falling back
 //! to the heap for larger values.
 
-use crate::base::{
-    ElementStorage, MultiElementStorage, MultiRangeStorage, RangeStorage, SingleElementStorage,
-    SingleRangeStorage,
-};
+use crate::base::{ElementStorage, LeaksafeStorage, MultiElementStorage, MultiRangeStorage, RangeStorage, SingleElementStorage, SingleRangeStorage};
 use crate::error;
 use std::marker::Unsize;
 use std::mem::MaybeUninit;
@@ -219,6 +216,13 @@ where
         }
     }
 }
+
+// SAFETY: We can leak this storage if we can leak either of its components
+unsafe impl<S1, S2> LeaksafeStorage for FallbackStorage<S1, S2>
+where
+    S1: LeaksafeStorage,
+    S2: LeaksafeStorage,
+{}
 
 #[derive(Copy, Clone)]
 #[non_exhaustive]

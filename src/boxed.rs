@@ -8,6 +8,7 @@ use core::mem::ManuallyDrop;
 use core::ops::{CoerceUnsized, Deref, DerefMut};
 use core::ptr::Pointee;
 use core::{fmt, mem, ptr};
+use std::ptr::NonNull;
 
 use crate::base::{LeaksafeStorage, SingleElementStorage};
 
@@ -129,18 +130,6 @@ where
             handle: new_handle,
             storage: ManuallyDrop::new(new_storage),
         })
-    }
-
-    /// 'Leak' this box, returning a reference to the inner data that will never be deallocated
-    pub fn leak<'a>(self) -> &'a mut T
-    where
-        S: LeaksafeStorage,
-    {
-        // SAFETY: Our handle is guaranteed valid by internal invariant
-        let mut out = unsafe { self.storage.get(self.handle) };
-        mem::forget(self);
-        // SAFETY: `LeaksafeStorage` bound allows pointers to allocator to live arbitrarily long
-        unsafe { out.as_mut() }
     }
 
     /// Perform an unsizing operation on `self`. A temporary solution to limitations with
