@@ -14,7 +14,10 @@ use core::mem::MaybeUninit;
 use core::ptr::{NonNull, Pointee};
 use rs_alloc::alloc::Global;
 
-use crate::base::{ElementStorage, LeaksafeStorage, MultiElementStorage, MultiRangeStorage, RangeStorage, SingleElementStorage, SingleRangeStorage};
+use crate::base::{
+    ElementStorage, LeaksafeStorage, MultiElementStorage, MultiRangeStorage, RangeStorage,
+    SingleElementStorage, SingleRangeStorage,
+};
 use crate::error::StorageError;
 use crate::utils;
 
@@ -176,10 +179,7 @@ impl<A: Allocator> MultiRangeStorage for Alloc<A> {
 }
 
 // SAFETY: Rust requires that implementors of `Allocator` are leak-safe currently
-unsafe impl<A> LeaksafeStorage for &'static Alloc<A>
-where
-    A: Allocator,
-{}
+unsafe impl<A> LeaksafeStorage for &'static Alloc<A> where A: Allocator {}
 
 #[cfg(test)]
 mod tests {

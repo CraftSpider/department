@@ -1,10 +1,10 @@
-use std::marker::Unsize;
-use std::ptr::{NonNull, Pointee};
+use super::StorageCell;
 use crate::base::{ElementStorage, MultiElementStorage};
 use crate::error::StorageError;
 use crate::statics::traits::StaticStorage;
 use crate::utils;
-use super::StorageCell;
+use std::marker::Unsize;
+use std::ptr::{NonNull, Pointee};
 
 /// Static multi-element storage implementation
 pub struct MultiElement<S: 'static, const N: usize> {

@@ -6,7 +6,10 @@ use core::ops::Range;
 use core::ptr::{NonNull, Pointee};
 use core::{fmt, mem, ptr};
 
-use crate::base::{ElementStorage, LeaksafeStorage, MultiElementStorage, MultiRangeStorage, RangeStorage, SingleElementStorage, SingleRangeStorage, StorageSafe};
+use crate::base::{
+    ElementStorage, LeaksafeStorage, MultiElementStorage, MultiRangeStorage, RangeStorage,
+    SingleElementStorage, SingleRangeStorage, StorageSafe,
+};
 use crate::error::{Result, StorageError};
 use crate::utils;
 
@@ -298,10 +301,7 @@ where
 }
 
 // SAFETY: Handles returned from a StaticHeap don't move and are valid until deallocated
-unsafe impl<S, const N: usize> LeaksafeStorage for &'static StaticHeap<S, N>
-where
-    S: StorageSafe,
-{}
+unsafe impl<S, const N: usize> LeaksafeStorage for &'static StaticHeap<S, N> where S: StorageSafe {}
 
 unsafe impl<S: Send + StorageSafe, const N: usize> Send for StaticHeap<S, N> {}
 unsafe impl<S: Sync + StorageSafe, const N: usize> Sync for StaticHeap<S, N> {}

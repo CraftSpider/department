@@ -1,12 +1,12 @@
-use std::marker::PhantomData;
-use std::mem;
-use std::mem::MaybeUninit;
-use std::ptr::NonNull;
+use super::StorageCell;
 use crate::base::{MultiRangeStorage, RangeStorage, StorageSafe};
 use crate::error::StorageError;
 use crate::statics::traits::StaticStorage;
 use crate::utils;
-use super::StorageCell;
+use std::marker::PhantomData;
+use std::mem;
+use std::mem::MaybeUninit;
+use std::ptr::NonNull;
 
 /// Static multi-range storage implementation
 pub struct MultiRange<S: 'static, const N: usize, const M: usize> {
@@ -14,7 +14,9 @@ pub struct MultiRange<S: 'static, const N: usize, const M: usize> {
     storage: &'static StorageCell<[[S; N]; M]>,
 }
 
-impl<S: 'static, const N: usize, const M: usize> StaticStorage<[[S; N]; M]> for MultiRange<S, N, M> {
+impl<S: 'static, const N: usize, const M: usize> StaticStorage<[[S; N]; M]>
+    for MultiRange<S, N, M>
+{
     fn take_cell(storage: &'static StorageCell<[[S; N]; M]>) -> Self {
         MultiRange {
             used: [false; M],
@@ -35,9 +37,7 @@ where
 
     unsafe fn get<T>(&self, handle: Self::Handle<T>) -> NonNull<[MaybeUninit<T>]> {
         let idx = std::ptr::addr_of_mut!((*self.storage.as_ptr())[handle.0]);
-        let ptr = NonNull::new(idx)
-            .expect("Valid handle")
-            .cast();
+        let ptr = NonNull::new(idx).expect("Valid handle").cast();
         NonNull::from_raw_parts(ptr, N)
     }
 }
