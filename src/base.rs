@@ -48,7 +48,7 @@ pub trait ElementStorage {
     ///   the method is being called on.
     /// - [`MultiElementStorage::deallocate`] or [`SingleElementStorage::deallocate_single`] must
     ///   not have been called with the handle.
-    type Handle<T: ?Sized /*+ Pointee*/>: Clone + Copy;
+    type Handle<T: ?Sized + Pointee>: Clone + Copy;
 
     /// Convert a handle into a raw pointer.
     ///
@@ -99,9 +99,8 @@ pub trait SingleElementStorage: ElementStorage {
         &mut self,
         value: T,
     ) -> core::result::Result<Self::Handle<T>, (StorageError, T)> {
-        let meta = NonNull::from(&value).to_raw_parts().1;
-
-        let handle = match self.allocate_single(meta) {
+        // Meta is always `()` for sized types
+        let handle = match self.allocate_single(()) {
             Ok(handle) => handle,
             Err(e) => return Err((e, value)),
         };
@@ -149,20 +148,20 @@ pub trait MultiElementStorage: ElementStorage {
 
     /// Attempt to allocate an element into this storage, and initialize it with
     /// the provided `T`.
-    fn create<T: Pointee>(&mut self, value: T) -> core::result::Result<Self::Handle<T>, T> {
-        let meta = NonNull::from(&value).to_raw_parts().1;
+    fn create<T: Pointee>(&mut self, value: T) -> core::result::Result<Self::Handle<T>, (StorageError, T)> {
+        // Meta is always `()` for sized types
+        let handle = match self.allocate(()) {
+            Ok(handle) => handle,
+            Err(e) => return Err((e, value)),
+        };
 
-        if let Ok(handle) = self.allocate(meta) {
-            //  SAFETY: `handle` is valid, as allocate succeeded.
-            let pointer = unsafe { self.get(handle) };
+        // SAFETY: `handle` is valid, as allocate succeeded.
+        let pointer = unsafe { self.get(handle) };
 
-            //  SAFETY: `pointer` points to a suitable memory area for `T` by impl guarantees.
-            unsafe { ptr::write(pointer.as_ptr(), value) };
+        // SAFETY: `pointer` points to a suitable memory area for `T` by impl guarantees.
+        unsafe { ptr::write(pointer.as_ptr(), value) };
 
-            Ok(handle)
-        } else {
-            Err(value)
-        }
+        Ok(handle)
     }
 
     /// Deallocate an element from this storage, dropping the existing item.
@@ -307,19 +306,20 @@ pub trait MultiRangeStorage: RangeStorage {
     fn create<T, const N: usize>(
         &mut self,
         arr: [T; N],
-    ) -> core::result::Result<Self::Handle<T>, [T; N]> {
-        if let Ok(handle) = self.allocate(N) {
-            // SAFETY: `handle` is valid, as allocate succeeded.
-            let mut pointer: NonNull<[MaybeUninit<T>]> = unsafe { self.get(handle) };
+    ) -> core::result::Result<Self::Handle<T>, (StorageError, [T; N])> {
+        let handle = match self.allocate(N) {
+            Ok(handle) => handle,
+            Err(e) => return Err((e, arr)),
+        };
 
-            // SAFETY: `pointer` points to a suitable memory area for `T` by impl guarantee.
-            for (idx, val) in arr.into_iter().enumerate() {
-                unsafe { pointer.as_mut()[idx].write(val) };
-            }
+        // SAFETY: `handle` is valid, as allocate succeeded.
+        let mut pointer: NonNull<[MaybeUninit<T>]> = unsafe { self.get(handle) };
 
-            Ok(handle)
-        } else {
-            Err(arr)
+        // SAFETY: `pointer` points to a suitable memory area for `T` by impl guarantee.
+        for (idx, val) in arr.into_iter().enumerate() {
+            unsafe { pointer.as_mut()[idx].write(val) };
         }
+
+        Ok(handle)
     }
 }

@@ -101,4 +101,11 @@ mod tests {
 
         assert_eq!(&*b, &[1, 2, 3, 4]);
     }
+
+    #[test]
+    fn test_zst() {
+        let b = Box::<(), SingleElement<[usize; 0]>>::new(());
+
+        assert_eq!(*b, ());
+    }
 }

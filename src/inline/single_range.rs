@@ -35,7 +35,7 @@ where
         let ptr = NonNull::new(self.storage.get())
             .expect("Valid handle")
             .cast();
-        NonNull::from_raw_parts(ptr, N)
+        NonNull::from_raw_parts(ptr, self.maximum_capacity::<T>())
     }
 }
 

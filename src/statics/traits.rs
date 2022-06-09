@@ -1,12 +1,14 @@
 use super::StorageCell;
 
 mod sealed {
+    use crate::statics;
+
     pub trait Sealed {}
 
-    impl<S> Sealed for crate::statics::SingleElement<S> {}
-    impl<S> Sealed for crate::statics::MultiElement<S> {}
-    impl<S> Sealed for crate::statics::SingleRange<S> {}
-    impl<S> Sealed for crate::statics::MultiRange<S> {}
+    impl<S> Sealed for statics::SingleElement<S> {}
+    impl<S, const N: usize> Sealed for statics::MultiElement<S, N> {}
+    impl<S, const N: usize> Sealed for statics::SingleRange<S, N> {}
+    impl<S> Sealed for statics::MultiRange<S> {}
 }
 
 /// Trait representing storages that can be created from a static `StorageCell`.

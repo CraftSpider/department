@@ -50,6 +50,8 @@ jobs:
 
       - name: Run miri
         uses: actions-rs/cargo@v1
+        env:
+          MIRIFLAGS: -Zmiri-strict-provenance -Zmiri-symbolic-alignment-check
         with:
           command: miri
           args: test
