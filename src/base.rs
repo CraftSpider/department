@@ -148,7 +148,10 @@ pub trait MultiElementStorage: ElementStorage {
 
     /// Attempt to allocate an element into this storage, and initialize it with
     /// the provided `T`.
-    fn create<T: Pointee>(&mut self, value: T) -> core::result::Result<Self::Handle<T>, (StorageError, T)> {
+    fn create<T: Pointee>(
+        &mut self,
+        value: T,
+    ) -> core::result::Result<Self::Handle<T>, (StorageError, T)> {
         // Meta is always `()` for sized types
         let handle = match self.allocate(()) {
             Ok(handle) => handle,

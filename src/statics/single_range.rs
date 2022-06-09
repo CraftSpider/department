@@ -1,12 +1,12 @@
-use core::ptr::NonNull;
+use core::marker::PhantomData;
 use core::mem;
 use core::mem::MaybeUninit;
-use core::marker::PhantomData;
+use core::ptr::NonNull;
 
+use super::StorageCell;
 use crate::base::{RangeStorage, SingleRangeStorage};
 use crate::statics::traits::StaticStorage;
 use crate::utils;
-use super::StorageCell;
 
 /// Static single-range storage implementation
 pub struct SingleRange<S: 'static, const N: usize>(&'static StorageCell<[S; N]>);
@@ -25,9 +25,7 @@ impl<S, const N: usize> RangeStorage for SingleRange<S, N> {
     }
 
     unsafe fn get<T>(&self, _handle: Self::Handle<T>) -> NonNull<[MaybeUninit<T>]> {
-        let ptr = NonNull::new(self.0.as_ptr())
-            .expect("Valid handle")
-            .cast();
+        let ptr = NonNull::new(self.0.as_ptr()).expect("Valid handle").cast();
         NonNull::from_raw_parts(ptr, self.maximum_capacity::<T>())
     }
 }

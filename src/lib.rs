@@ -14,7 +14,6 @@
 // A helper for initializing arrays. Could be replaced, but low priority compared to above
 // requirements.
 #![feature(maybe_uninit_uninit_array, const_maybe_uninit_uninit_array)]
-
 #![warn(
     missing_docs,
     elided_lifetimes_in_paths,
@@ -31,7 +30,7 @@
     clippy::ptr_as_ptr,
     clippy::cloned_instead_of_copied,
     clippy::unreadable_literal,
-    clippy::missing_safety_doc,
+    clippy::missing_safety_doc
 )]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "alloc", feature(allocator_api))]
