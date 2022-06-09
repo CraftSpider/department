@@ -228,10 +228,13 @@ where
 {
 }
 
+/// Handle for a fallback storage. Contains either a handle for the first or second storage used
 #[derive(Copy, Clone)]
 #[non_exhaustive]
 pub enum FallbackHandle<H1, H2> {
+    /// Allocation uses the first storage
     First(H1),
+    /// Allocation uses the second storage
     Second(H2),
 }
 

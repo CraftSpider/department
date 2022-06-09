@@ -8,9 +8,8 @@ use core::mem::ManuallyDrop;
 use core::ops::{CoerceUnsized, Deref, DerefMut};
 use core::ptr::Pointee;
 use core::{fmt, mem, ptr};
-use std::ptr::NonNull;
 
-use crate::base::{LeaksafeStorage, SingleElementStorage};
+use crate::base::SingleElementStorage;
 
 /// Storage-based implementation of [`Box`](std::boxed::Box).
 ///
