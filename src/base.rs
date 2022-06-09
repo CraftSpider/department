@@ -19,15 +19,23 @@ use crate::error::StorageError;
 /// Any type implementing this trait should contain no padding or other possible
 /// 'UB-to-read' sections. The storage may slice over an array of this type, ignoring
 /// normal boundaries.
-pub unsafe trait StorageSafe: Copy + fmt::Debug {}
+pub unsafe trait StorageSafe: Sized + Copy + fmt::Debug {}
 
+// SAFETY: `u8` contains no padding
 unsafe impl StorageSafe for u8 {}
+// SAFETY: `u16` contains no padding
 unsafe impl StorageSafe for u16 {}
+// SAFETY: `u32` contains no padding
 unsafe impl StorageSafe for u32 {}
+// SAFETY: `u64` contains no padding
 unsafe impl StorageSafe for u64 {}
+// SAFETY: `u128` contains no padding
 unsafe impl StorageSafe for u128 {}
+// SAFETY: `usize` contains no padding
 unsafe impl StorageSafe for usize {}
 
+// SAFETY: Arrays of items with no padding contain no padding, since size must be multiple of
+//         alignment
 unsafe impl<T: StorageSafe, const N: usize> StorageSafe for [T; N] {}
 
 // TODO: These should probably be unsafe traits, like the `Allocator` trait, as impls must uphold
@@ -283,8 +291,8 @@ pub trait SingleRangeStorage: RangeStorage {
         // SAFETY: `handle` is valid as allocate succeeded.
         let mut pointer: NonNull<[MaybeUninit<T>]> = unsafe { self.get(handle) };
 
-        // SAFETY: `pointer` points to a suitable memory area for `T` by impl guarantee.
         for (idx, val) in arr.into_iter().enumerate() {
+            // SAFETY: `pointer` points to a suitable memory area for `T` by impl guarantee.
             unsafe { pointer.as_mut()[idx].write(val) };
         }
 
@@ -318,8 +326,8 @@ pub trait MultiRangeStorage: RangeStorage {
         // SAFETY: `handle` is valid, as allocate succeeded.
         let mut pointer: NonNull<[MaybeUninit<T>]> = unsafe { self.get(handle) };
 
-        // SAFETY: `pointer` points to a suitable memory area for `T` by impl guarantee.
         for (idx, val) in arr.into_iter().enumerate() {
+            // SAFETY: `pointer` points to a suitable memory area for `T` by impl guarantee.
             unsafe { pointer.as_mut()[idx].write(val) };
         }
 

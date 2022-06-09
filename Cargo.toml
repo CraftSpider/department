@@ -17,10 +17,11 @@ default = ["std", "all_storages", "all_collections"]
 std = []
 
 # Different storage implementations, which may have their own requirements
-all_storages = ["inline", "static", "alloc"]
+all_storages = ["inline", "static", "alloc", "fallback"]
 inline = []
 static = []
 alloc = []
+fallback = []
 
 # Different collection implementations
 all_collections = ["box", "vec", "string"]

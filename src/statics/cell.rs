@@ -41,9 +41,7 @@ impl<S> StorageCell<S> {
     }
 
     pub(crate) fn release(&self) {
-        if !self.inner_try_release() {
-            panic!("Couldn't release StorageCell")
-        }
+        assert!(self.inner_try_release(), "Couldn't release StorageCell");
     }
 
     fn inner_try_claim(&self) -> bool {
@@ -66,11 +64,19 @@ impl<S> StorageCell<S> {
     }
 
     pub(super) unsafe fn as_ptr(&self) -> *mut S {
+        debug_assert!(
+            self.1.load(Ordering::SeqCst),
+            "Cell accessed while not claimed"
+        );
         self.0.get()
     }
 }
 
+// SAFETY: This type requires as a safety invariant that the inner cell is only accessed while
+//         atomically claimed
 unsafe impl<S: Send> Send for StorageCell<S> {}
+// SAFETY: This type requires as a safety invariant that the inner cell is only accessed while
+//         atomically claimed
 unsafe impl<S: Sync> Sync for StorageCell<S> {}
 
 impl<S> Default for StorageCell<S>

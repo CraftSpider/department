@@ -7,6 +7,7 @@ pub type Result<T> = core::result::Result<T, StorageError>;
 
 /// The error type returned by storages upon allocation failure
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum StorageError {
     /// The storage didn't have enough space for the requested allocation
     InsufficientSpace(usize, Option<usize>),

@@ -48,6 +48,8 @@ pub mod error;
 
 #[cfg(feature = "alloc")]
 pub mod alloc;
+#[cfg(feature = "fallback")]
+pub mod fallback;
 #[cfg(feature = "inline")]
 pub mod inline;
 #[cfg(feature = "static")]

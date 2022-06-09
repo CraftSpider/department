@@ -90,10 +90,10 @@ where
         lock.iter()
             // Count chains of `false` items
             .scan(0, |n, &v| {
-                if !v {
-                    *n += 1
-                } else {
+                if v {
                     *n = 0
+                } else {
+                    *n += 1
                 }
                 Some(*n)
             })
@@ -154,6 +154,8 @@ where
         let new_start = new_range.start;
         self.lock_range(&mut used, new_range);
 
+        // SAFETY: Satisfies internal requirement that the cell is only accessed while the mutex
+        //         is locked
         unsafe { &mut *self.storage.get() }.copy_within(old_range, new_start);
 
         Some(new_start)
@@ -303,7 +305,9 @@ where
 // SAFETY: Handles returned from a StaticHeap don't move and are valid until deallocated
 unsafe impl<S, const N: usize> LeaksafeStorage for &'static StaticHeap<S, N> where S: StorageSafe {}
 
+// SAFETY: This type only accesses the inner cell when atomically claimed
 unsafe impl<S: Send + StorageSafe, const N: usize> Send for StaticHeap<S, N> {}
+// SAFETY: This type only accesses the inner cell when atomically claimed
 unsafe impl<S: Sync + StorageSafe, const N: usize> Sync for StaticHeap<S, N> {}
 
 pub struct HeapHandle<T: ?Sized + Pointee>(usize, T::Metadata);

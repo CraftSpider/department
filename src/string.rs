@@ -1,8 +1,8 @@
 //! A storage-based implementation of [`std::string`]
 
 use core::borrow::Borrow;
-use core::{fmt, ops};
 use core::ops::Deref;
+use core::{fmt, ops};
 
 use crate::base::SingleRangeStorage;
 use crate::collections::Vec;

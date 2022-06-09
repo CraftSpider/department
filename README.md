@@ -34,7 +34,6 @@ edge cases (ZST, alignment requirements, etc).
 
 ### Missing Storages
 
-`fallback`, a type which takes two other storages and uses the second if the first fails
 `debug`, a storage which wraps another storage and provides debug logging or callbacks on allocations/deallocations
 
 ### Missing Collections
