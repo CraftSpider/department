@@ -333,19 +333,19 @@ mod tests {
     type Box<T> = super::Box<T, SingleElement<[usize; 4]>>;
 
     #[test]
-    fn box_new() {
+    fn new() {
         let b = Box::new(1);
         assert_eq!(*b, 1);
     }
 
     #[test]
-    fn box_new_in() {
+    fn new_in() {
         let b = Box::new_in(1, SingleElement::new());
         assert_eq!(*b, 1);
     }
 
     #[test]
-    fn test_try_in() {
+    fn try_in() {
         let b = Box::new([1, 2]);
         let b2 = b
             .try_in::<SingleElement<[usize; 2]>>(SingleElement::new())

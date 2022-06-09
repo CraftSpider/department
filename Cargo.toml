@@ -26,7 +26,7 @@ alloc = []
 all_collections = ["box", "vec", "string"]
 box = []
 vec = []
-string = []
+string = ["vec"]
 
 [dependencies]
 spin = { version = "0.9", default-features = false, features = ["spin_mutex", "mutex"] }

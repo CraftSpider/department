@@ -50,7 +50,7 @@ pub mod error;
 pub mod alloc;
 #[cfg(feature = "inline")]
 pub mod inline;
-#[cfg(all(feature = "static"))]
+#[cfg(feature = "static")]
 pub mod statics;
 
 // Collection implementations
