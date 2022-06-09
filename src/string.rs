@@ -1,6 +1,7 @@
 //! A storage-based implementation of [`std::string`]
 
-use core::fmt;
+use core::borrow::Borrow;
+use core::{fmt, ops};
 use core::ops::Deref;
 
 use crate::base::SingleRangeStorage;
@@ -108,6 +109,18 @@ where
     }
 }
 
+impl<S> ops::Add<&str> for String<S>
+where
+    S: SingleRangeStorage,
+{
+    type Output = String<S>;
+
+    fn add(mut self, rhs: &str) -> Self::Output {
+        self.inner.extend(rhs.as_bytes().iter().copied());
+        self
+    }
+}
+
 impl<S> Deref for String<S>
 where
     S: SingleRangeStorage,
@@ -117,5 +130,23 @@ where
     fn deref(&self) -> &Self::Target {
         // SAFETY: Invariant of String that the inner vec is valid utf8
         unsafe { core::str::from_utf8_unchecked(&*self.inner) }
+    }
+}
+
+impl<S> AsRef<str> for String<S>
+where
+    S: SingleRangeStorage,
+{
+    fn as_ref(&self) -> &str {
+        &**self
+    }
+}
+
+impl<S> Borrow<str> for String<S>
+where
+    S: SingleRangeStorage,
+{
+    fn borrow(&self) -> &str {
+        &**self
     }
 }

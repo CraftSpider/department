@@ -29,7 +29,8 @@ want specific storages and collections
 ## Future Work
 
 In the future, more types of storages and collections need to be added, hopefully
-up to `std` parity.
+up to `std` parity. Tests should be added for all storage types, with coverage for most
+edge cases (ZST, alignment requirements, etc).
 
 ### Missing Storages
 
