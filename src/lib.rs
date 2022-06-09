@@ -37,6 +37,7 @@
 
 #[cfg(feature = "alloc")]
 extern crate alloc as rs_alloc;
+extern crate core;
 
 mod utils;
 

@@ -326,3 +326,12 @@ pub trait MultiRangeStorage: RangeStorage {
         Ok(handle)
     }
 }
+
+/// Trait for storage types that are 'leak-safe', a pointer to them can live forever even if
+/// the storage is dropped
+///
+/// # Safety
+///
+/// Pointers retrieved from handles into this storage must remain valid past when the storage is
+/// dropped
+pub unsafe trait LeaksafeStorage {}

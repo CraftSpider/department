@@ -9,7 +9,7 @@ use core::ops::{CoerceUnsized, Deref, DerefMut};
 use core::ptr::Pointee;
 use core::{fmt, mem, ptr};
 
-use crate::base::SingleElementStorage;
+use crate::base::{LeaksafeStorage, SingleElementStorage};
 
 /// Storage-based implementation of [`Box`](std::boxed::Box).
 ///
@@ -131,13 +131,25 @@ where
         })
     }
 
+    /// 'Leak' this box, returning a reference to the inner data that will never be deallocated
+    pub fn leak<'a>(self) -> &'a mut T
+    where
+        S: LeaksafeStorage,
+    {
+        // SAFETY: Our handle is guaranteed valid by internal invariant
+        let mut out = unsafe { self.storage.get(self.handle) };
+        mem::forget(self);
+        // SAFETY: `LeaksafeStorage` bound allows pointers to allocator to live arbitrarily long
+        unsafe { out.as_mut() }
+    }
+
     /// Perform an unsizing operation on `self`. A temporary solution to limitations with
     /// manual unsizing.
     pub fn coerce<U: ?Sized>(mut self) -> Box<U, S>
     where
         T: Unsize<U>,
     {
-        // SAFETY: Out handle is guaranteed valid by internal invariant
+        // SAFETY: Our handle is guaranteed valid by internal invariant
         let handle = unsafe { self.storage.coerce::<_, U>(self.handle) };
         // SAFETY: We consume self, so no one will touch us after this
         let storage = unsafe { ManuallyDrop::take(&mut self.storage) };

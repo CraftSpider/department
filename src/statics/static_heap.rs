@@ -6,10 +6,7 @@ use core::ops::Range;
 use core::ptr::{NonNull, Pointee};
 use core::{fmt, mem, ptr};
 
-use crate::base::{
-    ElementStorage, MultiElementStorage, MultiRangeStorage, RangeStorage, SingleElementStorage,
-    SingleRangeStorage, StorageSafe,
-};
+use crate::base::{ElementStorage, LeaksafeStorage, MultiElementStorage, MultiRangeStorage, RangeStorage, SingleElementStorage, SingleRangeStorage, StorageSafe};
 use crate::error::{Result, StorageError};
 use crate::utils;
 
@@ -300,6 +297,12 @@ where
     }
 }
 
+// SAFETY: Handles returned from a StaticHeap don't move and are valid until deallocated
+unsafe impl<S, const N: usize> LeaksafeStorage for &'static StaticHeap<S, N>
+where
+    S: StorageSafe,
+{}
+
 unsafe impl<S: Send + StorageSafe, const N: usize> Send for StaticHeap<S, N> {}
 unsafe impl<S: Sync + StorageSafe, const N: usize> Sync for StaticHeap<S, N> {}
 
@@ -386,5 +389,18 @@ mod tests {
         assert_eq!(&*v2, &[3, 4]);
         assert_eq!(&*v3, &[5, 6]);
         assert_eq!(&*v4, &[7, 8]);
+    }
+
+    #[test]
+    fn test_leak() {
+        static HEAP: StaticHeap<usize, 16> = StaticHeap::new();
+
+        let v1 = Box::new_in(1, &HEAP);
+
+        let i = v1.leak();
+
+        assert_eq!(*i, 1);
+        *i = -1;
+        assert_eq!(*i, -1);
     }
 }
