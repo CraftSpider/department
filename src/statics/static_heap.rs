@@ -395,7 +395,8 @@ mod tests {
         assert_eq!(&*v4, &[7, 8]);
     }
 
-    #[test]
+    // TODO: Add this back once leaking is set up
+    /*#[test]
     fn test_leak() {
         static HEAP: StaticHeap<usize, 16> = StaticHeap::new();
 
@@ -406,5 +407,5 @@ mod tests {
         assert_eq!(*i, 1);
         *i = -1;
         assert_eq!(*i, -1);
-    }
+    }*/
 }
