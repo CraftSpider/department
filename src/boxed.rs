@@ -5,10 +5,11 @@ use core::borrow::{Borrow, BorrowMut};
 use core::cmp::Ordering;
 use core::marker::Unsize;
 use core::mem::ManuallyDrop;
-use core::ops::{CoerceUnsized, Deref, DerefMut};
-use core::ptr::Pointee;
+use core::ops::{Deref, DerefMut};
+use core::ptr::{Pointee, NonNull};
 use core::{fmt, mem, ptr};
-use std::ptr::NonNull;
+#[cfg(feature = "coerce-unsized")]
+use core::ops::CoerceUnsized;
 
 use crate::base::{FromLeakedStorage, LeaksafeStorage, Storage};
 
@@ -237,6 +238,7 @@ where
     }
 }
 
+#[cfg(feature = "coerce-unsized")]
 impl<T, U, S> CoerceUnsized<Box<U, S>> for Box<T, S>
 where
     T: ?Sized + Pointee,

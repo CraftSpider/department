@@ -263,7 +263,7 @@ where
     }
 
     fn max_range<T>(&self) -> usize {
-        let layout = utils::layout_of::<T>(());
+        let layout = Layout::new::<T>();
         (mem::size_of::<S>() * N) / layout.size()
     }
 }

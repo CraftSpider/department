@@ -370,11 +370,4 @@ pub enum FallbackHandle<H1, H2> {
     Second(H2),
 }
 
-// TODO: Hope someday this can work
-/*impl<HT1, HT2, HU1, HU2> CoerceUnsized<FallbackHandle<HU1, HU2>> for FallbackHandle<HT1, HT2>
-where
-    HT1: CoerceUnsized<HU1>,
-    HT2: CoerceUnsized<HU2>,
-{}*/
-
 // TODO: Tests

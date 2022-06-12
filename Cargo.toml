@@ -11,10 +11,13 @@ repository = "https://github.com/CraftSpider/department"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["std", "all_storages", "all_collections"]
+default = ["std", "coerce-unsized", "all_storages", "all_collections"]
 
 # Optional std support
 std = []
+
+# Optional automatic unsizing support
+coerce-unsized = []
 
 # Different storage implementations, which may have their own requirements
 all_storages = ["inline", "static", "alloc", "fallback"]

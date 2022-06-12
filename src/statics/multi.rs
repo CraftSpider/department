@@ -31,7 +31,7 @@ where
     type Handle<T: ?Sized> = MultiStaticHandle<T>;
 
     unsafe fn get<T: ?Sized>(&self, handle: Self::Handle<T>) -> NonNull<T> {
-        let idx = std::ptr::addr_of_mut!((*self.storage.as_ptr().as_ptr())[handle.0]);
+        let idx = core::ptr::addr_of_mut!((*self.storage.as_ptr().as_ptr())[handle.0]);
         let ptr: NonNull<()> = NonNull::new(idx).unwrap().cast();
         NonNull::from_raw_parts(ptr, handle.1)
     }
@@ -124,7 +124,7 @@ where
     }
 
     fn max_range<T>(&self) -> usize {
-        let layout = utils::layout_of::<T>(());
+        let layout = Layout::new::<T>();
         mem::size_of::<S>() / layout.size()
     }
 }
