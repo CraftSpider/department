@@ -259,7 +259,15 @@ where
     S: StorageSafe,
 {
     unsafe fn unleak<T: ?Sized>(&self, leaked: *mut T) -> Self::Handle<T> {
-        todo!()
+        let meta = ptr::metadata(leaked);
+
+        let offset: usize = leaked
+            .cast::<S>()
+            .offset_from(self.storage.get() as *const S)
+            .try_into()
+            .unwrap();
+
+        HeapHandle(offset, meta)
     }
 }
 
@@ -353,8 +361,7 @@ mod tests {
         assert_eq!(&*v4, &[7, 8]);
     }
 
-    // TODO: Add this back once leaking is set up
-    /*#[test]
+    #[test]
     fn test_leak() {
         static HEAP: StaticHeap<usize, 16> = StaticHeap::new();
 
@@ -365,5 +372,9 @@ mod tests {
         assert_eq!(*i, 1);
         *i = -1;
         assert_eq!(*i, -1);
-    }*/
+
+        let v1 = unsafe { Box::unleak_in(i, &HEAP) };
+
+        assert_eq!(*v1, -1);
+    }
 }

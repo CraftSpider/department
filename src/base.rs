@@ -1,6 +1,5 @@
 use core::{fmt, ptr};
 use core::marker::Unsize;
-use core::mem::MaybeUninit;
 use core::ptr::{NonNull, Pointee};
 
 use crate::error::StorageError;
@@ -43,6 +42,16 @@ pub unsafe trait Storage {
     fn allocate_single<T: ?Sized + Pointee>(&mut self, meta: T::Metadata) -> error::Result<Self::Handle<T>>;
     unsafe fn deallocate_single<T: ?Sized>(&mut self, handle: Self::Handle<T>);
 
+    #[allow(unused_variables)]
+    unsafe fn try_grow<T>(&mut self, handle: Self::Handle<[T]>, capacity: usize) -> error::Result<Self::Handle<[T]>> {
+        Err(StorageError::Unimplemented)
+    }
+
+    #[allow(unused_variables)]
+    unsafe fn try_shrink<T>(&mut self, handle: Self::Handle<[T]>, capacity: usize) -> error::Result<Self::Handle<[T]>> {
+        Err(StorageError::Unimplemented)
+    }
+
     fn create_single<T: Pointee>(
         &mut self,
         value: T,
@@ -71,21 +80,37 @@ pub unsafe trait Storage {
 
         self.deallocate_single(handle);
     }
-
-    #[allow(unused_variables)]
-    unsafe fn try_grow<T>(&mut self, handle: Self::Handle<[T]>, capacity: usize) -> error::Result<Self::Handle<[T]>> {
-        Err(StorageError::Unimplemented)
-    }
-
-    #[allow(unused_variables)]
-    unsafe fn try_shrink<T>(&mut self, handle: Self::Handle<[T]>, capacity: usize) -> error::Result<Self::Handle<[T]>> {
-        Err(StorageError::Unimplemented)
-    }
 }
 
 pub unsafe trait MultiItemStorage: Storage {
     fn allocate<T: ?Sized + Pointee>(&mut self, meta: T::Metadata) -> error::Result<Self::Handle<T>>;
     unsafe fn deallocate<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>);
+
+    fn create<T>(&mut self, value: T) -> core::result::Result<Self::Handle<T>, (StorageError, T)> {
+        // Meta is always `()` for sized types
+        let handle = match self.allocate(()) {
+            Ok(handle) => handle,
+            Err(e) => return Err((e, value)),
+        };
+
+        // SAFETY: `handle` is valid, as allocate just succeeded.
+        let pointer = unsafe { self.get(handle) };
+
+        // SAFETY: `pointer` points to a suitable memory area for `T` by impl guarantees.
+        unsafe { ptr::write(pointer.as_ptr(), value) };
+
+        Ok(handle)
+    }
+
+    unsafe fn drop<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>) {
+        // SAFETY: `handle` is valid by safety requirements.
+        let element = self.get(handle);
+
+        // SAFETY: `element` is valid by safety requirements.
+        ptr::drop_in_place(element.as_ptr());
+
+        self.deallocate(handle);
+    }
 }
 
 pub unsafe trait ExactSizeStorage: Storage {
@@ -104,17 +129,4 @@ pub unsafe trait LeaksafeStorage: Storage {}
 
 pub unsafe trait FromLeakedPtrStorage: LeaksafeStorage {
     unsafe fn unleak<T: ?Sized>(&self, leaked: *mut T) -> Self::Handle<T>;
-}
-
-pub unsafe fn alloc_range<S: Storage>(storage: &mut S) -> S::Handle<[i32]> {
-    let handle = storage.allocate_single::<[MaybeUninit<i32>]>(5)
-        .unwrap();
-
-    let mut ptr = storage.get(handle);
-
-    for i in 0..(ptr.as_ref().len()) {
-        ptr.as_mut()[i].write(1);
-    }
-
-    storage.cast::<_, [i32]>(handle)
 }

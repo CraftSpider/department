@@ -1,12 +1,12 @@
 use core::cell::UnsafeCell;
-use core::fmt;
+use core::{fmt, mem};
 use core::marker::Unsize;
 use core::mem::MaybeUninit;
 use core::ptr::{NonNull, Pointee};
-use std::mem;
+use core::alloc::Layout;
 
 use crate::base::{ExactSizeStorage, Storage, StorageSafe};
-use crate::error::Result;
+use crate::error::{Result, StorageError};
 use crate::utils;
 
 /// Inline single-element storage implementation
@@ -58,11 +58,19 @@ where
     unsafe fn deallocate_single<T: ?Sized + Pointee>(&mut self, _handle: Self::Handle<T>) {}
 
     unsafe fn try_grow<T>(&mut self, handle: Self::Handle<[T]>, capacity: usize) -> Result<Self::Handle<[T]>> {
-        todo!()
+        debug_assert!(capacity >= handle.0);
+        let new_layout = Layout::array::<T>(capacity).map_err(|_| StorageError::exceeds_max())?;
+
+        if self.will_fit::<[T]>(capacity) {
+            Ok(SingleInlineHandle(capacity))
+        } else {
+            Err(StorageError::InsufficientSpace(new_layout.size(), Some(self.max_range::<T>())))
+        }
     }
 
     unsafe fn try_shrink<T>(&mut self, handle: Self::Handle<[T]>, capacity: usize) -> Result<Self::Handle<[T]>> {
-        todo!()
+        debug_assert!(capacity <= handle.0);
+        Ok(SingleInlineHandle(capacity))
     }
 }
 

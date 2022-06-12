@@ -4,10 +4,11 @@
 //! Great for small-value optimization, storing inline if an item is small but falling back
 //! to the heap for larger values.
 
+use core::marker::Unsize;
+use core::ptr::{NonNull, Pointee};
+
 use crate::base::{Storage, MultiItemStorage, ExactSizeStorage, LeaksafeStorage};
 use crate::error;
-use std::marker::Unsize;
-use std::ptr::{NonNull, Pointee};
 
 /// A storage which attempts to store in one storage, then falls back to a second
 pub struct FallbackStorage<S1, S2> {

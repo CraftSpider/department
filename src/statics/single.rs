@@ -1,11 +1,13 @@
-use core::fmt;
+use core::{fmt, mem};
 use core::marker::Unsize;
 use core::ptr::{NonNull, Pointee};
+use core::alloc::Layout;
 
 use super::traits::StaticStorage;
 use super::StorageCell;
-use crate::base::{Storage, StorageSafe};
-use crate::{error, utils};
+use crate::base::{ExactSizeStorage, Storage, StorageSafe};
+use crate::utils;
+use crate::error::{Result, StorageError};
 
 /// Static single-element storage implementation
 pub struct SingleItem<S: 'static>(&'static StorageCell<S>);
@@ -37,12 +39,43 @@ where
         SingleStaticHandle(meta)
     }
 
-    fn allocate_single<T: ?Sized + Pointee>(&mut self, meta: T::Metadata) -> error::Result<Self::Handle<T>> {
+    fn allocate_single<T: ?Sized + Pointee>(&mut self, meta: T::Metadata) -> Result<Self::Handle<T>> {
         utils::validate_layout::<T, S>(meta)?;
         Ok(SingleStaticHandle(meta))
     }
 
     unsafe fn deallocate_single<T: ?Sized>(&mut self, _handle: Self::Handle<T>) {}
+
+    unsafe fn try_grow<T>(&mut self, handle: Self::Handle<[T]>, capacity: usize) -> Result<Self::Handle<[T]>> {
+        debug_assert!(capacity >= handle.0);
+        let new_layout = Layout::array::<T>(capacity).map_err(|_| StorageError::exceeds_max())?;
+
+        if self.will_fit::<[T]>(capacity) {
+            Ok(SingleStaticHandle(capacity))
+        } else {
+            Err(StorageError::InsufficientSpace(new_layout.size(), Some(self.max_range::<T>())))
+        }
+    }
+
+    unsafe fn try_shrink<T>(&mut self, handle: Self::Handle<[T]>, capacity: usize) -> Result<Self::Handle<[T]>> {
+        debug_assert!(capacity <= handle.0);
+        Ok(SingleStaticHandle(capacity))
+    }
+}
+
+unsafe impl<S> ExactSizeStorage for SingleItem<S>
+where
+    S: StorageSafe,
+{
+    fn will_fit<T: ?Sized + Pointee>(&self, meta: T::Metadata) -> bool {
+        let layout = utils::layout_of::<T>(meta);
+        mem::size_of::<S>() >= layout.size()
+    }
+
+    fn max_range<T>(&self) -> usize {
+        let layout = utils::layout_of::<T>(());
+        mem::size_of::<S>() / layout.size()
+    }
 }
 
 impl<S> fmt::Debug for SingleItem<S> {

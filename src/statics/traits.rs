@@ -5,11 +5,8 @@ mod sealed {
 
     pub trait Sealed {}
 
-    // TODO: Fix with statics
     impl<S> Sealed for statics::SingleItem<S> {}
     impl<S, const N: usize> Sealed for statics::MultiItem<S, N> {}
-    // impl<S, const N: usize> Sealed for statics::SingleRange<S, N> {}
-    // impl<S, const N: usize, const M: usize> Sealed for statics::MultiRange<S, N, M> {}
 }
 
 /// Trait representing storages that can be created from a static `StorageCell`.

@@ -9,7 +9,7 @@ use core::ops::{CoerceUnsized, Deref, DerefMut};
 use core::ptr::Pointee;
 use core::{fmt, mem, ptr};
 
-use crate::base::Storage;
+use crate::base::{FromLeakedPtrStorage, LeaksafeStorage, Storage};
 
 /// Storage-based implementation of [`Box`](std::boxed::Box).
 ///
@@ -131,16 +131,64 @@ where
         })
     }
 
-    pub fn into_raw(self) -> S::Handle<T> {
-        todo!()
+    pub fn into_raw(self) -> S::Handle<T>
+    where
+        Self: LeaksafeStorage,
+    {
+        self.handle
     }
 
-    pub fn from_raw(handle: S::Handle<T>) -> Self {
-        todo!()
+    pub unsafe fn from_raw(handle: S::Handle<T>) -> Self
+    where
+        S: LeaksafeStorage + Default,
+    {
+        Box {
+            handle,
+            storage: ManuallyDrop::new(S::default()),
+        }
     }
 
-    pub fn leak<'a>(self) -> &'a mut S {
-        todo!()
+    pub unsafe fn from_raw_in(handle: S::Handle<T>, storage: S) -> Self
+    where
+        S: LeaksafeStorage,
+    {
+        Box {
+            handle,
+            storage: ManuallyDrop::new(storage),
+        }
+    }
+
+    pub fn leak<'a>(mut self) -> &'a mut T
+    where
+        S: LeaksafeStorage,
+    {
+        let out = unsafe { self.storage.get(self.handle).as_mut() };
+        unsafe { ManuallyDrop::drop(&mut self.storage); }
+        mem::forget(self);
+        out
+    }
+
+    pub unsafe fn unleak(ptr: *mut T) -> Box<T, S>
+    where
+        S: FromLeakedPtrStorage + Default,
+    {
+        let storage = S::default();
+        let handle = storage.unleak(ptr);
+        Box {
+            handle,
+            storage: ManuallyDrop::new(storage),
+        }
+    }
+
+    pub unsafe fn unleak_in(ptr: *mut T, storage: S) -> Box<T, S>
+    where
+        S: FromLeakedPtrStorage,
+    {
+        let handle = storage.unleak(ptr);
+        Box {
+            handle,
+            storage: ManuallyDrop::new(storage),
+        }
     }
 
     /// Perform an unsizing operation on `self`. A temporary solution to limitations with

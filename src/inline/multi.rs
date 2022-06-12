@@ -1,10 +1,11 @@
 use core::cell::UnsafeCell;
-use core::fmt;
+use core::{fmt, mem};
 use core::marker::Unsize;
 use core::mem::MaybeUninit;
 use core::ptr::{NonNull, Pointee};
+use core::alloc::Layout;
 
-use crate::base::{MultiItemStorage, Storage, StorageSafe};
+use crate::base::{ExactSizeStorage, MultiItemStorage, Storage, StorageSafe};
 use crate::error::StorageError;
 use crate::{error, utils};
 
@@ -52,6 +53,22 @@ where
     unsafe fn deallocate_single<T: ?Sized>(&mut self, handle: Self::Handle<T>) {
         self.deallocate(handle)
     }
+
+    unsafe fn try_grow<T>(&mut self, handle: Self::Handle<[T]>, capacity: usize) -> error::Result<Self::Handle<[T]>> {
+        debug_assert!(capacity >= handle.1);
+        let new_layout = Layout::array::<T>(capacity).map_err(|_| StorageError::exceeds_max())?;
+
+        if self.will_fit::<[T]>(capacity) {
+            Ok(MultiInlineHandle(handle.0, capacity))
+        } else {
+            Err(StorageError::InsufficientSpace(new_layout.size(), Some(self.max_range::<T>())))
+        }
+    }
+
+    unsafe fn try_shrink<T>(&mut self, handle: Self::Handle<[T]>, capacity: usize) -> error::Result<Self::Handle<[T]>> {
+        debug_assert!(capacity <= handle.1);
+        Ok(MultiInlineHandle(handle.0, capacity))
+    }
 }
 
 unsafe impl<S, const N: usize> MultiItemStorage for MultiInline<S, N>
@@ -78,6 +95,21 @@ where
 
     unsafe fn deallocate<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>) {
         self.used[handle.0] = false;
+    }
+}
+
+unsafe impl<S, const N: usize> ExactSizeStorage for MultiInline<S, N>
+where
+    S: StorageSafe,
+{
+    fn will_fit<T: ?Sized + Pointee>(&self, meta: T::Metadata) -> bool {
+        let layout = utils::layout_of::<T>(meta);
+        mem::size_of::<S>() >= layout.size()
+    }
+
+    fn max_range<T>(&self) -> usize {
+        let layout = utils::layout_of::<T>(());
+        mem::size_of::<S>() / layout.size()
     }
 }
 

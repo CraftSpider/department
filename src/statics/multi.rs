@@ -1,10 +1,13 @@
+use core::marker::Unsize;
+use core::mem;
+use core::ptr::{NonNull, Pointee};
+use core::alloc::Layout;
+
 use super::StorageCell;
-use crate::base::{Storage, MultiItemStorage, StorageSafe};
-use crate::error::StorageError;
+use crate::base::{Storage, MultiItemStorage, StorageSafe, ExactSizeStorage};
+use crate::error::{Result, StorageError};
 use crate::statics::traits::StaticStorage;
-use crate::{error, utils};
-use std::marker::Unsize;
-use std::ptr::{NonNull, Pointee};
+use crate::utils;
 
 /// Static multi-element storage implementation
 pub struct MultiItem<S: 'static, const N: usize> {
@@ -43,7 +46,7 @@ where
         MultiStaticHandle(handle.0, meta)
     }
 
-    fn allocate_single<T: ?Sized + Pointee>(&mut self, meta: T::Metadata) -> error::Result<Self::Handle<T>> {
+    fn allocate_single<T: ?Sized + Pointee>(&mut self, meta: T::Metadata) -> Result<Self::Handle<T>> {
         self.allocate(meta)
     }
 
@@ -51,12 +54,20 @@ where
         self.deallocate(handle)
     }
 
-    unsafe fn try_grow<T>(&mut self, handle: Self::Handle<[T]>, capacity: usize) -> error::Result<Self::Handle<[T]>> {
-        todo!()
+    unsafe fn try_grow<T>(&mut self, handle: Self::Handle<[T]>, capacity: usize) -> Result<Self::Handle<[T]>> {
+        debug_assert!(capacity >= handle.1);
+        let new_layout = Layout::array::<T>(capacity).map_err(|_| StorageError::exceeds_max())?;
+
+        if self.will_fit::<[T]>(capacity) {
+            Ok(MultiStaticHandle(handle.0, capacity))
+        } else {
+            Err(StorageError::InsufficientSpace(new_layout.size(), Some(self.max_range::<T>())))
+        }
     }
 
-    unsafe fn try_shrink<T>(&mut self, handle: Self::Handle<[T]>, capacity: usize) -> error::Result<Self::Handle<[T]>> {
-        todo!()
+    unsafe fn try_shrink<T>(&mut self, handle: Self::Handle<[T]>, capacity: usize) -> Result<Self::Handle<[T]>> {
+        debug_assert!(capacity <= handle.1);
+        Ok(MultiStaticHandle(handle.0, capacity))
     }
 }
 
@@ -64,7 +75,7 @@ unsafe impl<S, const N: usize> MultiItemStorage for MultiItem<S, N>
 where
     S: StorageSafe,
 {
-    fn allocate<T: ?Sized + Pointee>(&mut self, meta: T::Metadata) -> error::Result<Self::Handle<T>> {
+    fn allocate<T: ?Sized + Pointee>(&mut self, meta: T::Metadata) -> Result<Self::Handle<T>> {
         utils::validate_layout::<T, S>(meta)?;
 
         let pos = self
@@ -73,11 +84,28 @@ where
             .position(|i| !*i)
             .ok_or(StorageError::NoSlots)?;
 
+        self.used[pos] = true;
+
         Ok(MultiStaticHandle(pos, meta))
     }
 
     unsafe fn deallocate<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>) {
-        todo!()
+        self.used[handle.0] = false;
+    }
+}
+
+unsafe impl<S, const N: usize> ExactSizeStorage for MultiItem<S, N>
+where
+    S: StorageSafe,
+{
+    fn will_fit<T: ?Sized + Pointee>(&self, meta: T::Metadata) -> bool {
+        let layout = utils::layout_of::<T>(meta);
+        mem::size_of::<S>() >= layout.size()
+    }
+
+    fn max_range<T>(&self) -> usize {
+        let layout = utils::layout_of::<T>(());
+        mem::size_of::<S>() / layout.size()
     }
 }
 
