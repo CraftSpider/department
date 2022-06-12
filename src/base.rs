@@ -119,7 +119,7 @@ pub unsafe trait Storage {
 
     /// Attempt to grow a previously allocated range up to the size of `capacity`.
     ///
-    /// # Safetydeallocated
+    /// # Safety
     ///
     /// The following conditions must be upheld:
     /// - The provided handle must be valid. See [`Self::Handle`]
