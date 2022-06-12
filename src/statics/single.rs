@@ -4,69 +4,68 @@ use core::ptr::{NonNull, Pointee};
 
 use super::traits::StaticStorage;
 use super::StorageCell;
-use crate::base::{ElementStorage, SingleElementStorage};
-use crate::utils;
+use crate::base::{Storage, StorageSafe};
+use crate::{error, utils};
 
 /// Static single-element storage implementation
-pub struct SingleElement<S: 'static>(&'static StorageCell<S>);
+pub struct SingleItem<S: 'static>(&'static StorageCell<S>);
 
-impl<S: 'static> StaticStorage<S> for SingleElement<S> {
-    fn take_cell(storage: &'static StorageCell<S>) -> SingleElement<S> {
-        SingleElement(storage)
+impl<S: 'static> StaticStorage<S> for SingleItem<S> {
+    fn take_cell(storage: &'static StorageCell<S>) -> SingleItem<S> {
+        SingleItem(storage)
     }
 }
 
-impl<S> ElementStorage for SingleElement<S> {
-    type Handle<T: ?Sized + Pointee> = SingleElementHandle<T>;
+unsafe impl<S> Storage for SingleItem<S>
+where
+    S: StorageSafe,
+{
+    type Handle<T: ?Sized> = SingleStaticHandle<T>;
 
-    unsafe fn get<T: ?Sized + Pointee>(&self, handle: Self::Handle<T>) -> NonNull<T> {
-        let ptr: NonNull<()> = NonNull::new(self.0.as_ptr()).unwrap().cast();
+    unsafe fn get<T: ?Sized>(&self, handle: Self::Handle<T>) -> NonNull<T> {
+        let ptr: NonNull<()> = self.0.as_ptr().cast();
         NonNull::from_raw_parts(ptr, handle.0)
     }
 
-    unsafe fn coerce<T: ?Sized + Pointee + Unsize<U>, U: ?Sized + Pointee>(
-        &self,
-        handle: Self::Handle<T>,
-    ) -> Self::Handle<U> {
+    fn cast<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata=T::Metadata>>(&self, handle: Self::Handle<T>) -> Self::Handle<U> {
+        SingleStaticHandle(handle.0)
+    }
+
+    unsafe fn coerce<T: ?Sized + Pointee + Unsize<U>, U: ?Sized + Pointee>(&self, handle: Self::Handle<T>) -> Self::Handle<U> {
         let element = self.get(handle);
         let meta = (element.as_ptr() as *mut U).to_raw_parts().1;
-        SingleElementHandle(meta)
+        SingleStaticHandle(meta)
     }
-}
 
-impl<S> SingleElementStorage for SingleElement<S> {
-    fn allocate_single<T: ?Sized + Pointee>(
-        &mut self,
-        meta: T::Metadata,
-    ) -> crate::error::Result<Self::Handle<T>> {
+    fn allocate_single<T: ?Sized + Pointee>(&mut self, meta: T::Metadata) -> error::Result<Self::Handle<T>> {
         utils::validate_layout::<T, S>(meta)?;
-        Ok(SingleElementHandle(meta))
+        Ok(SingleStaticHandle(meta))
     }
 
-    unsafe fn deallocate_single<T: ?Sized + Pointee>(&mut self, _handle: Self::Handle<T>) {}
+    unsafe fn deallocate_single<T: ?Sized>(&mut self, _handle: Self::Handle<T>) {}
 }
 
-impl<S> fmt::Debug for SingleElement<S> {
+impl<S> fmt::Debug for SingleItem<S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("SingleElement").finish_non_exhaustive()
     }
 }
 
-impl<S> Drop for SingleElement<S> {
+impl<S> Drop for SingleItem<S> {
     fn drop(&mut self) {
         self.0.release()
     }
 }
 
-pub struct SingleElementHandle<T: ?Sized + Pointee>(T::Metadata);
+pub struct SingleStaticHandle<T: ?Sized + Pointee>(T::Metadata);
 
-impl<T: ?Sized + Pointee> Clone for SingleElementHandle<T> {
+impl<T: ?Sized + Pointee> Clone for SingleStaticHandle<T> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<T: ?Sized + Pointee> Copy for SingleElementHandle<T> {}
+impl<T: ?Sized + Pointee> Copy for SingleStaticHandle<T> {}
 
 #[cfg(test)]
 mod tests {
@@ -79,7 +78,7 @@ mod tests {
     fn test_box() {
         static FOO: StorageCell<[usize; 4]> = StorageCell::new([0; 4]);
 
-        let b = Box::<_, SingleElement<[usize; 4]>>::new_in([1, 2], FOO.claim());
+        let b = Box::<_, SingleItem<[usize; 4]>>::new_in([1, 2], FOO.claim());
         let b = b.coerce::<[i32]>();
 
         assert_eq!(&*b, &[1, 2]);
@@ -89,7 +88,7 @@ mod tests {
     fn test_zst() {
         static FOO: StorageCell<[usize; 0]> = StorageCell::new([]);
 
-        let b = Box::<(), SingleElement<[usize; 0]>>::new_in((), FOO.claim());
+        let b = Box::<(), SingleItem<[usize; 0]>>::new_in((), FOO.claim());
 
         assert_eq!(*b, ());
     }
@@ -102,7 +101,7 @@ mod tests {
         let mut handles = Vec::new();
         for i in 0..100 {
             handles.push(std::thread::spawn(move || {
-                let storage = FOO.try_claim::<SingleElement<_>>();
+                let storage = FOO.try_claim::<SingleItem<_>>();
                 if storage.is_some() {
                     println!("Thread {} claimed storage", i);
                     std::thread::sleep(Duration::from_millis(1));

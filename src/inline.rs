@@ -9,14 +9,8 @@
 //! - Strictest `get` validity requirements of the provided implementations
 //!
 
-mod multi_elem;
-mod single_elem;
+mod multi;
+mod single;
 
-mod multi_range;
-mod single_range;
-
-pub use multi_elem::MultiElement;
-pub use single_elem::SingleElement;
-
-pub use multi_range::MultiRange;
-pub use single_range::SingleRange;
+pub use multi::MultiInline;
+pub use single::SingleInline;

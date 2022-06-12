@@ -9,14 +9,14 @@ use core::ops::{CoerceUnsized, Deref, DerefMut};
 use core::ptr::Pointee;
 use core::{fmt, mem, ptr};
 
-use crate::base::SingleElementStorage;
+use crate::base::Storage;
 
 /// Storage-based implementation of [`Box`](std::boxed::Box).
 ///
 /// Note that unsizing coercion currently isn't expressive enough to support all storage types,
 /// so the implementation provides a `coerce` method which can be used to emulate the same
 /// functionality.
-pub struct Box<T: ?Sized + Pointee, S: SingleElementStorage> {
+pub struct Box<T: ?Sized + Pointee, S: Storage> {
     handle: S::Handle<T>,
     storage: ManuallyDrop<S>,
 }
@@ -24,7 +24,7 @@ pub struct Box<T: ?Sized + Pointee, S: SingleElementStorage> {
 impl<T, S> Box<T, S>
 where
     T: Pointee,
-    S: SingleElementStorage + Default,
+    S: Storage + Default,
 {
     /// Create a new [`Box`] containing the provided value, creating a default instance of the
     /// desired storage.
@@ -56,7 +56,7 @@ where
 impl<T, S> Box<T, S>
 where
     T: Pointee,
-    S: SingleElementStorage,
+    S: Storage,
 {
     /// Create a new [`Box`] containing the provided value, in the provided storage.
     ///
@@ -89,13 +89,13 @@ where
 impl<T, S> Box<T, S>
 where
     T: ?Sized + Pointee,
-    S: SingleElementStorage,
+    S: Storage,
 {
     /// Attempt to move the value from this `Box` into another one using a different backing
     /// storage. In case of failure, the original `Box` is returned unchanged.
     pub fn try_in<Ns>(mut self, mut new_storage: Ns) -> Result<Box<T, Ns>, (Box<T, S>, Ns)>
     where
-        Ns: SingleElementStorage,
+        Ns: Storage,
     {
         let layout = Layout::for_value(&*self);
 
@@ -131,6 +131,18 @@ where
         })
     }
 
+    pub fn into_raw(self) -> S::Handle<T> {
+        todo!()
+    }
+
+    pub fn from_raw(handle: S::Handle<T>) -> Self {
+        todo!()
+    }
+
+    pub fn leak<'a>(self) -> &'a mut S {
+        todo!()
+    }
+
     /// Perform an unsizing operation on `self`. A temporary solution to limitations with
     /// manual unsizing.
     pub fn coerce<U: ?Sized>(mut self) -> Box<U, S>
@@ -153,7 +165,7 @@ where
 impl<T, S> fmt::Debug for Box<T, S>
 where
     T: ?Sized + fmt::Debug,
-    S: SingleElementStorage,
+    S: Storage,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self.as_ref())
@@ -163,7 +175,7 @@ where
 impl<T, S> fmt::Display for Box<T, S>
 where
     T: ?Sized + fmt::Display,
-    S: SingleElementStorage,
+    S: Storage,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.as_ref())
@@ -174,7 +186,7 @@ impl<T, U, S> CoerceUnsized<Box<U, S>> for Box<T, S>
 where
     T: ?Sized + Pointee,
     U: ?Sized + Pointee,
-    S: SingleElementStorage,
+    S: Storage,
     S::Handle<T>: CoerceUnsized<S::Handle<U>>,
 {
 }
@@ -182,7 +194,7 @@ where
 impl<T, S> AsRef<T> for Box<T, S>
 where
     T: ?Sized + Pointee,
-    S: SingleElementStorage,
+    S: Storage,
 {
     fn as_ref(&self) -> &T {
         &*self
@@ -192,7 +204,7 @@ where
 impl<T, S> AsMut<T> for Box<T, S>
 where
     T: ?Sized + Pointee,
-    S: SingleElementStorage,
+    S: Storage,
 {
     fn as_mut(&mut self) -> &mut T {
         &mut *self
@@ -202,7 +214,7 @@ where
 impl<T, S> Borrow<T> for Box<T, S>
 where
     T: ?Sized + Pointee,
-    S: SingleElementStorage,
+    S: Storage,
 {
     fn borrow(&self) -> &T {
         &*self
@@ -212,7 +224,7 @@ where
 impl<T, S> BorrowMut<T> for Box<T, S>
 where
     T: ?Sized + Pointee,
-    S: SingleElementStorage,
+    S: Storage,
 {
     fn borrow_mut(&mut self) -> &mut T {
         &mut *self
@@ -222,7 +234,7 @@ where
 impl<T, S> Deref for Box<T, S>
 where
     T: ?Sized + Pointee,
-    S: SingleElementStorage,
+    S: Storage,
 {
     type Target = T;
 
@@ -235,7 +247,7 @@ where
 impl<T, S> DerefMut for Box<T, S>
 where
     T: ?Sized + Pointee,
-    S: SingleElementStorage,
+    S: Storage,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         // SAFETY: Handle is guaranteed valid by internal invariant
@@ -246,7 +258,7 @@ where
 impl<T, S> Drop for Box<T, S>
 where
     T: ?Sized + Pointee,
-    S: SingleElementStorage,
+    S: Storage,
 {
     fn drop(&mut self) {
         // SAFETY: Handle is guaranteed valid by internal invariant
@@ -259,7 +271,7 @@ where
 impl<T, S> Clone for Box<T, S>
 where
     T: Pointee + Clone,
-    S: SingleElementStorage + Default,
+    S: Storage + Default,
 {
     fn clone(&self) -> Box<T, S> {
         let new_item = T::clone(&*self);
@@ -270,7 +282,7 @@ where
 impl<T, S> Default for Box<T, S>
 where
     T: Pointee + Default,
-    S: SingleElementStorage + Default,
+    S: Storage + Default,
 {
     fn default() -> Box<T, S> {
         Box::new(T::default())
@@ -280,7 +292,7 @@ where
 impl<T, S> PartialEq for Box<T, S>
 where
     T: ?Sized + Pointee + PartialEq,
-    S: SingleElementStorage,
+    S: Storage,
 {
     fn eq(&self, other: &Self) -> bool {
         T::eq(&*self, &*other)
@@ -290,14 +302,14 @@ where
 impl<T, S> Eq for Box<T, S>
 where
     T: ?Sized + Pointee + Eq,
-    S: SingleElementStorage,
+    S: Storage,
 {
 }
 
 impl<T, S> PartialOrd for Box<T, S>
 where
     T: ?Sized + Pointee + PartialOrd,
-    S: SingleElementStorage,
+    S: Storage,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         T::partial_cmp(&*self, &*other)
@@ -307,7 +319,7 @@ where
 impl<T, S> Ord for Box<T, S>
 where
     T: ?Sized + Pointee + Ord,
-    S: SingleElementStorage,
+    S: Storage,
 {
     fn cmp(&self, other: &Self) -> Ordering {
         T::cmp(&*self, &*other)
@@ -316,9 +328,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::inline::SingleElement;
+    use crate::inline::SingleInline;
 
-    type Box<T> = super::Box<T, SingleElement<[usize; 4]>>;
+    type Box<T> = super::Box<T, SingleInline<[usize; 4]>>;
 
     #[test]
     fn new() {
@@ -328,7 +340,7 @@ mod tests {
 
     #[test]
     fn new_in() {
-        let b = Box::new_in(1, SingleElement::new());
+        let b = Box::new_in(1, SingleInline::new());
         assert_eq!(*b, 1);
     }
 
@@ -336,13 +348,13 @@ mod tests {
     fn try_in() {
         let b = Box::new([1, 2]);
         let b2 = b
-            .try_in::<SingleElement<[usize; 2]>>(SingleElement::new())
+            .try_in::<SingleInline<[usize; 2]>>(SingleInline::new())
             .unwrap();
 
         assert_eq!(*b2, [1, 2]);
 
         let b3 = b2
-            .try_in::<SingleElement<[u32; 1]>>(SingleElement::new())
+            .try_in::<SingleInline<[u32; 1]>>(SingleInline::new())
             .unwrap_err();
 
         assert_eq!(*b3.0, [1, 2]);

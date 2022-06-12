@@ -14,6 +14,7 @@
 // A helper for initializing arrays. Could be replaced, but low priority compared to above
 // requirements.
 #![feature(maybe_uninit_uninit_array, const_maybe_uninit_uninit_array)]
+#![feature(associated_type_defaults)]
 #![warn(
     missing_docs,
     elided_lifetimes_in_paths,

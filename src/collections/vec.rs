@@ -3,22 +3,22 @@ use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut, Index, IndexMut};
 use core::{fmt, mem, ptr, slice};
 
-use crate::base::SingleRangeStorage;
+use crate::base::Storage;
 use crate::error::Result;
 
 /// Storage based implementation of [`Vec`](`std::vec::Vec`)
 pub struct Vec<T, S>
 where
-    S: SingleRangeStorage,
+    S: Storage,
 {
-    handle: S::Handle<T>,
+    handle: S::Handle<[MaybeUninit<T>]>,
     len: usize,
     storage: S,
 }
 
 impl<T, S> Vec<T, S>
 where
-    S: SingleRangeStorage + Default,
+    S: Storage + Default,
 {
     /// Create a new, empty [`Vec`], creating a default instance of the desired storage.
     ///
@@ -65,7 +65,7 @@ where
 
 impl<T, S> Vec<T, S>
 where
-    S: SingleRangeStorage,
+    S: Storage,
 {
     /// Create a new, empty [`Vec`], using the provided storage instance.
     ///
@@ -176,7 +176,7 @@ where
 impl<T, S> fmt::Debug for Vec<T, S>
 where
     T: fmt::Debug,
-    S: SingleRangeStorage,
+    S: Storage,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self.as_ref())
@@ -185,7 +185,7 @@ where
 
 impl<T, S> Default for Vec<T, S>
 where
-    S: SingleRangeStorage + Default,
+    S: Storage + Default,
 {
     fn default() -> Vec<T, S> {
         Vec::new()
@@ -194,7 +194,7 @@ where
 
 impl<T, S> AsRef<[T]> for Vec<T, S>
 where
-    S: SingleRangeStorage,
+    S: Storage,
 {
     fn as_ref(&self) -> &[T] {
         &*self
@@ -203,7 +203,7 @@ where
 
 impl<T, S> AsMut<[T]> for Vec<T, S>
 where
-    S: SingleRangeStorage,
+    S: Storage,
 {
     fn as_mut(&mut self) -> &mut [T] {
         &mut *self
@@ -212,7 +212,7 @@ where
 
 impl<T, S> Borrow<[T]> for Vec<T, S>
 where
-    S: SingleRangeStorage,
+    S: Storage,
 {
     fn borrow(&self) -> &[T] {
         &*self
@@ -221,7 +221,7 @@ where
 
 impl<T, S> BorrowMut<[T]> for Vec<T, S>
 where
-    S: SingleRangeStorage,
+    S: Storage,
 {
     fn borrow_mut(&mut self) -> &mut [T] {
         &mut *self
@@ -230,7 +230,7 @@ where
 
 impl<T, S> Deref for Vec<T, S>
 where
-    S: SingleRangeStorage,
+    S: Storage,
 {
     type Target = [T];
 
@@ -245,7 +245,7 @@ where
 
 impl<T, S> DerefMut for Vec<T, S>
 where
-    S: SingleRangeStorage,
+    S: Storage,
 {
     fn deref_mut(&mut self) -> &mut Self::Target {
         // SAFETY: Handle is guaranteed valid by internal invariant
@@ -258,7 +258,7 @@ where
 
 impl<T, S> Drop for Vec<T, S>
 where
-    S: SingleRangeStorage,
+    S: Storage,
 {
     fn drop(&mut self) {
         for i in self.as_mut() {
@@ -272,7 +272,7 @@ where
 
 impl<T, S> Index<usize> for Vec<T, S>
 where
-    S: SingleRangeStorage,
+    S: Storage,
 {
     type Output = T;
 
@@ -283,7 +283,7 @@ where
 
 impl<T, S> IndexMut<usize> for Vec<T, S>
 where
-    S: SingleRangeStorage,
+    S: Storage,
 {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.as_mut()[index]
@@ -293,12 +293,12 @@ where
 impl<T, S> Clone for Vec<T, S>
 where
     T: Clone,
-    S: SingleRangeStorage + Clone,
+    S: Storage + Clone,
 {
     fn clone(&self) -> Self {
         let mut new_storage = self.storage.clone();
         let new_handle = new_storage
-            .allocate_single(self.len())
+            .allocate_single::<[MaybeUninit<T>]>(self.len())
             .expect("Couldn't allocate new array");
 
         // SAFETY: New handle is guaranteed valid as allocate succeeded
@@ -320,7 +320,7 @@ where
 impl<T, S> From<&[T]> for Vec<T, S>
 where
     T: Clone,
-    S: SingleRangeStorage + Default,
+    S: Storage + Default,
 {
     fn from(val: &[T]) -> Self {
         let mut v = Vec::with_capacity(val.len());
@@ -331,7 +331,7 @@ where
 
 impl<T, S, const N: usize> From<[T; N]> for Vec<T, S>
 where
-    S: SingleRangeStorage + Default,
+    S: Storage + Default,
 {
     fn from(val: [T; N]) -> Self {
         let mut v = Vec::with_capacity(N);
@@ -343,7 +343,7 @@ where
 impl<T, S> From<(&[T], S)> for Vec<T, S>
 where
     T: Clone,
-    S: SingleRangeStorage,
+    S: Storage,
 {
     fn from(val: (&[T], S)) -> Self {
         let mut v = Vec::with_capacity_in(val.0.len(), val.1);
@@ -354,7 +354,7 @@ where
 
 impl<T, S, const N: usize> From<([T; N], S)> for Vec<T, S>
 where
-    S: SingleRangeStorage,
+    S: Storage,
 {
     fn from(val: ([T; N], S)) -> Self {
         let mut v = Vec::with_capacity_in(N, val.1);
@@ -365,7 +365,7 @@ where
 
 impl<T, S> Extend<T> for Vec<T, S>
 where
-    S: SingleRangeStorage,
+    S: Storage,
 {
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
         iter.into_iter().for_each(|i| self.push(i))
@@ -374,9 +374,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::inline::SingleRange;
+    use crate::inline::SingleInline;
 
-    type Vec<T> = super::Vec<T, SingleRange<usize, 16>>;
+    type Vec<T> = super::Vec<T, SingleInline<[usize; 16]>>;
 
     #[test]
     fn vec_new() {

@@ -1,5 +1,6 @@
 use core::cell::UnsafeCell;
 use core::sync::atomic::{AtomicBool, Ordering};
+use std::ptr::NonNull;
 
 use super::traits::StaticStorage;
 
@@ -63,12 +64,13 @@ impl<S> StorageCell<S> {
         result.is_ok()
     }
 
-    pub(super) unsafe fn as_ptr(&self) -> *mut S {
+    pub(super) unsafe fn as_ptr(&self) -> NonNull<S> {
         debug_assert!(
             self.1.load(Ordering::SeqCst),
             "Cell accessed while not claimed"
         );
-        self.0.get()
+        // SAFETY: UnsafeCell should never return a null pointer
+        NonNull::new_unchecked(self.0.get())
     }
 }
 

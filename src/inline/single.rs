@@ -3,34 +3,39 @@ use core::fmt;
 use core::marker::Unsize;
 use core::mem::MaybeUninit;
 use core::ptr::{NonNull, Pointee};
+use std::mem;
 
-use crate::base::{ElementStorage, SingleElementStorage, StorageSafe};
+use crate::base::{ExactSizeStorage, Storage, StorageSafe};
 use crate::error::Result;
 use crate::utils;
 
 /// Inline single-element storage implementation
-pub struct SingleElement<S> {
+pub struct SingleInline<S> {
     storage: UnsafeCell<MaybeUninit<S>>,
 }
 
-impl<S> SingleElement<S> {
+impl<S> SingleInline<S> {
     /// Create a new `SingleElement`
-    pub fn new() -> SingleElement<S> {
-        SingleElement {
+    pub fn new() -> SingleInline<S> {
+        SingleInline {
             storage: UnsafeCell::new(MaybeUninit::uninit()),
         }
     }
 }
 
-impl<S> ElementStorage for SingleElement<S>
+unsafe impl<S> Storage for SingleInline<S>
 where
     S: StorageSafe,
 {
-    type Handle<T: ?Sized + Pointee> = SingleElementHandle<T>;
+    type Handle<T: ?Sized + Pointee> = SingleInlineHandle<T>;
 
     unsafe fn get<T: ?Sized + Pointee>(&self, handle: Self::Handle<T>) -> NonNull<T> {
         let ptr: NonNull<()> = NonNull::new(self.storage.get()).unwrap().cast();
         NonNull::from_raw_parts(ptr, handle.0)
+    }
+
+    fn cast<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata=T::Metadata>>(&self, handle: Self::Handle<T>) -> Self::Handle<U> {
+        SingleInlineHandle(handle.0)
     }
 
     unsafe fn coerce<T: ?Sized + Pointee + Unsize<U>, U: ?Sized + Pointee>(
@@ -39,54 +44,72 @@ where
     ) -> Self::Handle<U> {
         let element = self.get(handle);
         let meta = (element.as_ptr() as *mut U).to_raw_parts().1;
-        SingleElementHandle(meta)
+        SingleInlineHandle(meta)
     }
-}
 
-impl<S> SingleElementStorage for SingleElement<S>
-where
-    S: StorageSafe,
-{
     fn allocate_single<T: ?Sized + Pointee>(
         &mut self,
         meta: T::Metadata,
     ) -> Result<Self::Handle<T>> {
         utils::validate_layout::<T, S>(meta)?;
-        Ok(SingleElementHandle(meta))
+        Ok(SingleInlineHandle(meta))
     }
 
     unsafe fn deallocate_single<T: ?Sized + Pointee>(&mut self, _handle: Self::Handle<T>) {}
+
+    unsafe fn try_grow<T>(&mut self, handle: Self::Handle<[T]>, capacity: usize) -> Result<Self::Handle<[T]>> {
+        todo!()
+    }
+
+    unsafe fn try_shrink<T>(&mut self, handle: Self::Handle<[T]>, capacity: usize) -> Result<Self::Handle<[T]>> {
+        todo!()
+    }
 }
 
-impl<S> fmt::Debug for SingleElement<S> {
+unsafe impl<S> ExactSizeStorage for SingleInline<S>
+where
+    S: StorageSafe,
+{
+    fn will_fit<T: ?Sized + Pointee>(&self, meta: T::Metadata) -> bool {
+        let layout = utils::layout_of::<T>(meta);
+        mem::size_of::<S>() >= layout.size()
+    }
+
+    fn max_range<T>(&self) -> usize {
+        let layout = utils::layout_of::<T>(());
+        mem::size_of::<S>() / layout.size()
+    }
+}
+
+impl<S> fmt::Debug for SingleInline<S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("SingleElement").finish_non_exhaustive()
     }
 }
 
-impl<S> Clone for SingleElement<S> {
+impl<S> Clone for SingleInline<S> {
     fn clone(&self) -> Self {
         // 'cloning' doesn't preserve handles, it just gives you a new storage
-        SingleElement::new()
+        SingleInline::new()
     }
 }
 
-impl<S> Default for SingleElement<S> {
-    fn default() -> SingleElement<S> {
-        SingleElement::new()
+impl<S> Default for SingleInline<S> {
+    fn default() -> SingleInline<S> {
+        SingleInline::new()
     }
 }
 
 #[derive(Debug)]
-pub struct SingleElementHandle<T: ?Sized + Pointee>(T::Metadata);
+pub struct SingleInlineHandle<T: ?Sized + Pointee>(T::Metadata);
 
-impl<T: ?Sized + Pointee> Clone for SingleElementHandle<T> {
+impl<T: ?Sized + Pointee> Clone for SingleInlineHandle<T> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<T: ?Sized + Pointee> Copy for SingleElementHandle<T> {}
+impl<T: ?Sized + Pointee> Copy for SingleInlineHandle<T> {}
 
 #[cfg(test)]
 mod tests {
@@ -96,7 +119,7 @@ mod tests {
 
     #[test]
     fn test_box() {
-        let b = Box::<_, SingleElement<[usize; 4]>>::new([1, 2, 3, 4]);
+        let b = Box::<_, SingleInline<[usize; 4]>>::new([1, 2, 3, 4]);
         let b = b.coerce::<[i32]>();
 
         assert_eq!(&*b, &[1, 2, 3, 4]);
@@ -104,7 +127,7 @@ mod tests {
 
     #[test]
     fn test_zst() {
-        let b = Box::<(), SingleElement<[usize; 0]>>::new(());
+        let b = Box::<(), SingleInline<[usize; 0]>>::new(());
 
         assert_eq!(*b, ());
     }
