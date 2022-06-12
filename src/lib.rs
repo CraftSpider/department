@@ -11,9 +11,6 @@
 #![feature(layout_for_ptr)]
 // Needed to implement unsizing coercion via `Box`
 #![feature(coerce_unsized)]
-// A helper for initializing arrays. Could be replaced, but low priority compared to above
-// requirements.
-#![feature(maybe_uninit_uninit_array, const_maybe_uninit_uninit_array)]
 #![warn(
     missing_docs,
     elided_lifetimes_in_paths,

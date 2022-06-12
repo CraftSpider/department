@@ -36,7 +36,7 @@ impl<S, const N: usize> StaticHeap<S, N> {
     pub const fn new() -> StaticHeap<S, N> {
         StaticHeap {
             used: spin::Mutex::new([false; N]),
-            storage: UnsafeCell::new(MaybeUninit::uninit_array()),
+            storage: UnsafeCell::new(unsafe { MaybeUninit::<[MaybeUninit<S>; N]>::uninit().assume_init() }),
         }
     }
 }
