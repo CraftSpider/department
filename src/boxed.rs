@@ -5,11 +5,11 @@ use core::borrow::{Borrow, BorrowMut};
 use core::cmp::Ordering;
 use core::marker::Unsize;
 use core::mem::ManuallyDrop;
-use core::ops::{Deref, DerefMut};
-use core::ptr::{Pointee, NonNull};
-use core::{fmt, mem, ptr};
 #[cfg(feature = "coerce-unsized")]
 use core::ops::CoerceUnsized;
+use core::ops::{Deref, DerefMut};
+use core::ptr::{NonNull, Pointee};
+use core::{fmt, mem, ptr};
 
 use crate::base::{FromLeakedStorage, LeaksafeStorage, Storage};
 
