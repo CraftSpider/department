@@ -1,10 +1,10 @@
+use core::alloc::Layout;
 use core::marker::Unsize;
 use core::mem;
 use core::ptr::{NonNull, Pointee};
-use core::alloc::Layout;
 
 use super::StorageCell;
-use crate::base::{Storage, MultiItemStorage, StorageSafe, ExactSizeStorage};
+use crate::base::{ExactSizeStorage, MultiItemStorage, Storage, StorageSafe};
 use crate::error::{Result, StorageError};
 use crate::statics::traits::StaticStorage;
 use crate::utils;
@@ -36,17 +36,26 @@ where
         NonNull::from_raw_parts(ptr, handle.1)
     }
 
-    fn cast<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata=T::Metadata>>(&self, handle: Self::Handle<T>) -> Self::Handle<U> {
+    fn cast<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(
+        &self,
+        handle: Self::Handle<T>,
+    ) -> Self::Handle<U> {
         MultiStaticHandle(handle.0, handle.1)
     }
 
-    unsafe fn coerce<T: ?Sized + Pointee + Unsize<U>, U: ?Sized + Pointee>(&self, handle: Self::Handle<T>) -> Self::Handle<U> {
+    unsafe fn coerce<T: ?Sized + Pointee + Unsize<U>, U: ?Sized + Pointee>(
+        &self,
+        handle: Self::Handle<T>,
+    ) -> Self::Handle<U> {
         let element = self.get(handle);
         let meta = (element.as_ptr() as *mut U).to_raw_parts().1;
         MultiStaticHandle(handle.0, meta)
     }
 
-    fn allocate_single<T: ?Sized + Pointee>(&mut self, meta: T::Metadata) -> Result<Self::Handle<T>> {
+    fn allocate_single<T: ?Sized + Pointee>(
+        &mut self,
+        meta: T::Metadata,
+    ) -> Result<Self::Handle<T>> {
         self.allocate(meta)
     }
 
@@ -54,18 +63,29 @@ where
         self.deallocate(handle)
     }
 
-    unsafe fn try_grow<T>(&mut self, handle: Self::Handle<[T]>, capacity: usize) -> Result<Self::Handle<[T]>> {
+    unsafe fn try_grow<T>(
+        &mut self,
+        handle: Self::Handle<[T]>,
+        capacity: usize,
+    ) -> Result<Self::Handle<[T]>> {
         debug_assert!(capacity >= handle.1);
         let new_layout = Layout::array::<T>(capacity).map_err(|_| StorageError::exceeds_max())?;
 
         if self.will_fit::<[T]>(capacity) {
             Ok(MultiStaticHandle(handle.0, capacity))
         } else {
-            Err(StorageError::InsufficientSpace(new_layout.size(), Some(self.max_range::<T>())))
+            Err(StorageError::InsufficientSpace(
+                new_layout.size(),
+                Some(self.max_range::<T>()),
+            ))
         }
     }
 
-    unsafe fn try_shrink<T>(&mut self, handle: Self::Handle<[T]>, capacity: usize) -> Result<Self::Handle<[T]>> {
+    unsafe fn try_shrink<T>(
+        &mut self,
+        handle: Self::Handle<[T]>,
+        capacity: usize,
+    ) -> Result<Self::Handle<[T]>> {
         debug_assert!(capacity <= handle.1);
         Ok(MultiStaticHandle(handle.0, capacity))
     }
@@ -94,7 +114,7 @@ where
     }
 }
 
-unsafe impl<S, const N: usize> ExactSizeStorage for MultiItem<S, N>
+impl<S, const N: usize> ExactSizeStorage for MultiItem<S, N>
 where
     S: StorageSafe,
 {

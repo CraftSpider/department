@@ -1,13 +1,13 @@
-use core::{fmt, mem};
+use core::alloc::Layout;
 use core::marker::Unsize;
 use core::ptr::{NonNull, Pointee};
-use core::alloc::Layout;
+use core::{fmt, mem};
 
 use super::traits::StaticStorage;
 use super::StorageCell;
 use crate::base::{ExactSizeStorage, Storage, StorageSafe};
-use crate::utils;
 use crate::error::{Result, StorageError};
+use crate::utils;
 
 /// Static single-element storage implementation
 pub struct SingleItem<S: 'static>(&'static StorageCell<S>);
@@ -29,41 +29,61 @@ where
         NonNull::from_raw_parts(ptr, handle.0)
     }
 
-    fn cast<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata=T::Metadata>>(&self, handle: Self::Handle<T>) -> Self::Handle<U> {
+    fn cast<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(
+        &self,
+        handle: Self::Handle<T>,
+    ) -> Self::Handle<U> {
         SingleStaticHandle(handle.0)
     }
 
-    unsafe fn coerce<T: ?Sized + Pointee + Unsize<U>, U: ?Sized + Pointee>(&self, handle: Self::Handle<T>) -> Self::Handle<U> {
+    unsafe fn coerce<T: ?Sized + Pointee + Unsize<U>, U: ?Sized + Pointee>(
+        &self,
+        handle: Self::Handle<T>,
+    ) -> Self::Handle<U> {
         let element = self.get(handle);
         let meta = (element.as_ptr() as *mut U).to_raw_parts().1;
         SingleStaticHandle(meta)
     }
 
-    fn allocate_single<T: ?Sized + Pointee>(&mut self, meta: T::Metadata) -> Result<Self::Handle<T>> {
+    fn allocate_single<T: ?Sized + Pointee>(
+        &mut self,
+        meta: T::Metadata,
+    ) -> Result<Self::Handle<T>> {
         utils::validate_layout::<T, S>(meta)?;
         Ok(SingleStaticHandle(meta))
     }
 
     unsafe fn deallocate_single<T: ?Sized>(&mut self, _handle: Self::Handle<T>) {}
 
-    unsafe fn try_grow<T>(&mut self, handle: Self::Handle<[T]>, capacity: usize) -> Result<Self::Handle<[T]>> {
+    unsafe fn try_grow<T>(
+        &mut self,
+        handle: Self::Handle<[T]>,
+        capacity: usize,
+    ) -> Result<Self::Handle<[T]>> {
         debug_assert!(capacity >= handle.0);
         let new_layout = Layout::array::<T>(capacity).map_err(|_| StorageError::exceeds_max())?;
 
         if self.will_fit::<[T]>(capacity) {
             Ok(SingleStaticHandle(capacity))
         } else {
-            Err(StorageError::InsufficientSpace(new_layout.size(), Some(self.max_range::<T>())))
+            Err(StorageError::InsufficientSpace(
+                new_layout.size(),
+                Some(self.max_range::<T>()),
+            ))
         }
     }
 
-    unsafe fn try_shrink<T>(&mut self, handle: Self::Handle<[T]>, capacity: usize) -> Result<Self::Handle<[T]>> {
+    unsafe fn try_shrink<T>(
+        &mut self,
+        handle: Self::Handle<[T]>,
+        capacity: usize,
+    ) -> Result<Self::Handle<[T]>> {
         debug_assert!(capacity <= handle.0);
         Ok(SingleStaticHandle(capacity))
     }
 }
 
-unsafe impl<S> ExactSizeStorage for SingleItem<S>
+impl<S> ExactSizeStorage for SingleItem<S>
 where
     S: StorageSafe,
 {

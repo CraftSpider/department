@@ -1,6 +1,6 @@
 use core::cell::UnsafeCell;
-use core::sync::atomic::{AtomicBool, Ordering};
 use core::ptr::NonNull;
+use core::sync::atomic::{AtomicBool, Ordering};
 
 use super::traits::StaticStorage;
 

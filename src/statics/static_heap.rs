@@ -7,7 +7,7 @@ use core::ptr::{NonNull, Pointee};
 use core::{fmt, mem, ptr};
 
 use crate::base::{
-    Storage, MultiItemStorage, ExactSizeStorage, LeaksafeStorage, FromLeakedPtrStorage, StorageSafe
+    ExactSizeStorage, FromLeakedStorage, LeaksafeStorage, MultiItemStorage, Storage, StorageSafe,
 };
 use crate::error::{Result, StorageError};
 use crate::utils;
@@ -174,17 +174,26 @@ where
         NonNull::from_raw_parts(ptr, handle.1)
     }
 
-    fn cast<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata=T::Metadata>>(&self, handle: Self::Handle<T>) -> Self::Handle<U> {
+    fn cast<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(
+        &self,
+        handle: Self::Handle<T>,
+    ) -> Self::Handle<U> {
         HeapHandle(handle.0, handle.1)
     }
 
-    unsafe fn coerce<T: ?Sized + Pointee + Unsize<U>, U: ?Sized + Pointee>(&self, handle: Self::Handle<T>) -> Self::Handle<U> {
+    unsafe fn coerce<T: ?Sized + Pointee + Unsize<U>, U: ?Sized + Pointee>(
+        &self,
+        handle: Self::Handle<T>,
+    ) -> Self::Handle<U> {
         let element = <Self as Storage>::get(self, handle);
         let meta = (element.as_ptr() as *mut U).to_raw_parts().1;
         HeapHandle(handle.0, meta)
     }
 
-    fn allocate_single<T: ?Sized + Pointee>(&mut self, meta: T::Metadata) -> Result<Self::Handle<T>> {
+    fn allocate_single<T: ?Sized + Pointee>(
+        &mut self,
+        meta: T::Metadata,
+    ) -> Result<Self::Handle<T>> {
         self.allocate(meta)
     }
 
@@ -192,7 +201,11 @@ where
         self.deallocate(handle)
     }
 
-    unsafe fn try_grow<T>(&mut self, handle: Self::Handle<[T]>, capacity: usize) -> Result<Self::Handle<[T]>> {
+    unsafe fn try_grow<T>(
+        &mut self,
+        handle: Self::Handle<[T]>,
+        capacity: usize,
+    ) -> Result<Self::Handle<[T]>> {
         debug_assert!(capacity >= handle.1);
         // We need to check if we can grow in-place. If not, then we need to see if we have any
         // open space for the new range, ignoring ourselves as we're allowed to overwrite that.
@@ -208,7 +221,11 @@ where
         }
     }
 
-    unsafe fn try_shrink<T>(&mut self, handle: Self::Handle<[T]>, capacity: usize) -> Result<Self::Handle<[T]>> {
+    unsafe fn try_shrink<T>(
+        &mut self,
+        handle: Self::Handle<[T]>,
+        capacity: usize,
+    ) -> Result<Self::Handle<[T]>> {
         debug_assert!(capacity <= handle.1);
         self.unlock_range(
             &mut self.used.lock(),
@@ -236,7 +253,7 @@ where
     }
 }
 
-unsafe impl<S, const N: usize> ExactSizeStorage for &StaticHeap<S, N>
+impl<S, const N: usize> ExactSizeStorage for &StaticHeap<S, N>
 where
     S: StorageSafe,
 {
@@ -254,11 +271,11 @@ where
 // SAFETY: Handles returned from a StaticHeap don't move and are valid until deallocated
 unsafe impl<S, const N: usize> LeaksafeStorage for &'static StaticHeap<S, N> where S: StorageSafe {}
 
-unsafe impl<S, const N: usize> FromLeakedPtrStorage for &'static StaticHeap<S, N>
+unsafe impl<S, const N: usize> FromLeakedStorage for &'static StaticHeap<S, N>
 where
     S: StorageSafe,
 {
-    unsafe fn unleak<T: ?Sized>(&self, leaked: *mut T) -> Self::Handle<T> {
+    unsafe fn unleak_ptr<T: ?Sized>(&self, leaked: *mut T) -> Self::Handle<T> {
         let meta = ptr::metadata(leaked);
 
         let offset: usize = leaked
@@ -367,13 +384,13 @@ mod tests {
 
         let v1 = Box::new_in(1, &HEAP);
 
-        let i = v1.leak();
+        let i = Box::leak(v1);
 
         assert_eq!(*i, 1);
         *i = -1;
         assert_eq!(*i, -1);
 
-        let v1 = unsafe { Box::unleak_in(i, &HEAP) };
+        let v1 = unsafe { Box::from_raw_in(i, &HEAP) };
 
         assert_eq!(*v1, -1);
     }

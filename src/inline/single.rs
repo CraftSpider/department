@@ -1,9 +1,9 @@
+use core::alloc::Layout;
 use core::cell::UnsafeCell;
-use core::{fmt, mem};
 use core::marker::Unsize;
 use core::mem::MaybeUninit;
 use core::ptr::{NonNull, Pointee};
-use core::alloc::Layout;
+use core::{fmt, mem};
 
 use crate::base::{ExactSizeStorage, Storage, StorageSafe};
 use crate::error::{Result, StorageError};
@@ -34,7 +34,10 @@ where
         NonNull::from_raw_parts(ptr, handle.0)
     }
 
-    fn cast<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata=T::Metadata>>(&self, handle: Self::Handle<T>) -> Self::Handle<U> {
+    fn cast<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(
+        &self,
+        handle: Self::Handle<T>,
+    ) -> Self::Handle<U> {
         SingleInlineHandle(handle.0)
     }
 
@@ -57,24 +60,35 @@ where
 
     unsafe fn deallocate_single<T: ?Sized + Pointee>(&mut self, _handle: Self::Handle<T>) {}
 
-    unsafe fn try_grow<T>(&mut self, handle: Self::Handle<[T]>, capacity: usize) -> Result<Self::Handle<[T]>> {
+    unsafe fn try_grow<T>(
+        &mut self,
+        handle: Self::Handle<[T]>,
+        capacity: usize,
+    ) -> Result<Self::Handle<[T]>> {
         debug_assert!(capacity >= handle.0);
         let new_layout = Layout::array::<T>(capacity).map_err(|_| StorageError::exceeds_max())?;
 
         if self.will_fit::<[T]>(capacity) {
             Ok(SingleInlineHandle(capacity))
         } else {
-            Err(StorageError::InsufficientSpace(new_layout.size(), Some(self.max_range::<T>())))
+            Err(StorageError::InsufficientSpace(
+                new_layout.size(),
+                Some(self.max_range::<T>()),
+            ))
         }
     }
 
-    unsafe fn try_shrink<T>(&mut self, handle: Self::Handle<[T]>, capacity: usize) -> Result<Self::Handle<[T]>> {
+    unsafe fn try_shrink<T>(
+        &mut self,
+        handle: Self::Handle<[T]>,
+        capacity: usize,
+    ) -> Result<Self::Handle<[T]>> {
         debug_assert!(capacity <= handle.0);
         Ok(SingleInlineHandle(capacity))
     }
 }
 
-unsafe impl<S> ExactSizeStorage for SingleInline<S>
+impl<S> ExactSizeStorage for SingleInline<S>
 where
     S: StorageSafe,
 {

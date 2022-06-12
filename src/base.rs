@@ -1,9 +1,15 @@
-use core::{fmt, ptr};
+//! The base of the whole API, the storage trait itself and its various extensions.
+//!
+//! These traits represent the allowed use-cases for a storage.
+//! They are separated to allow implementations to be as specific or general as they wish in
+//! what they support.
+
 use core::marker::Unsize;
 use core::ptr::{NonNull, Pointee};
+use core::{fmt, ptr};
 
-use crate::error::StorageError;
 use crate::error;
+use crate::error::StorageError;
 
 /// A collection of types safe to be used with inline or static storages.
 ///
@@ -31,27 +37,118 @@ unsafe impl StorageSafe for usize {}
 //         alignment
 unsafe impl<T: StorageSafe, const N: usize> StorageSafe for [T; N] {}
 
+/// A storage, an abstraction of the idea of a location data can be placed. This may be on the
+/// stack, on the heap, or even in more unusual places.
+///
+/// A baseline storage may only be able to store a single item at once.
+///
+/// # Safety
+///
+/// Implementations must not cause memory unsafety as long as the user follows the unsafe method
+/// invariants documented on this trait. Valid handles must be returned from
+/// [`Self::allocate_single`], valid pointers from [`Self::get`] when a valid handle is used,
+/// UB must not be caused when [`Self::deallocate_single`] is called on a valid handle, etc.
 pub unsafe trait Storage {
+    /// The type of 'handles' given out by this storage
+    ///
+    /// These not always being pointers allows a storage to possibly be moved or otherwise altered,
+    /// without invalidating handles it has given out.
+    ///
+    /// # Validity
+    ///
+    /// Multiple functions may require a 'valid handle'. For a handle to be valid, these conditions
+    /// must be upheld:
+    /// - The handle must have been provided by the same instance of `Storage` as
+    ///   the method is being called on.
+    /// - [`Storage::deallocate_single`] or [`MultiItemStorage::deallocate`] must
+    ///   not have been called with the handle.
+    /// - The handle type must be a valid type to read the allocated item as. This is the same
+    ///   as the restrictions on dereferencing a cast or unsized pointer.
+    ///
+    /// Certain extension traits may loosen these requirements (See [`LeaksafeStorage`] for an
+    /// example)
     type Handle<T: ?Sized>: Copy;
 
+    /// Convert a handle into a raw pointer.
+    ///
+    /// # Safety
+    ///
+    /// The returned pointer, in general, is only valid as long as the following conditions are
+    /// upheld:
+    /// - The handle must be valid. See [`Self::Handle`].
+    /// - This storage is not moved or dropped while the pointer is in use
+    /// - The handle must not be deallocated while the pointer is in use
+    ///
+    /// Specific implementations *may* loosen these requirements.
     unsafe fn get<T: ?Sized>(&self, handle: Self::Handle<T>) -> NonNull<T>;
 
-    fn cast<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(&self, handle: Self::Handle<T>) -> Self::Handle<U>;
-    unsafe fn coerce<T: ?Sized + Pointee + Unsize<U>, U: ?Sized + Pointee>(&self, handle: Self::Handle<T>) -> Self::Handle<U>;
+    /// Convert this handle into a different type with the same metadata. This is roughly equivalent
+    /// to [`NonNull::cast`].
+    fn cast<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(
+        &self,
+        handle: Self::Handle<T>,
+    ) -> Self::Handle<U>;
 
-    fn allocate_single<T: ?Sized + Pointee>(&mut self, meta: T::Metadata) -> error::Result<Self::Handle<T>>;
+    /// Convert unsizing on a handle. This function is a temporary solution until Rust
+    /// supports better custom unsizing.
+    ///
+    /// # Safety
+    ///
+    /// The provided handle must be valid. See [`Self::Handle`].
+    unsafe fn coerce<T: ?Sized + Pointee + Unsize<U>, U: ?Sized + Pointee>(
+        &self,
+        handle: Self::Handle<T>,
+    ) -> Self::Handle<U>;
+
+    /// Attempt to allocate an element into this storage, returning a [`StorageError`] on failure.
+    ///
+    /// If an element has already been allocated, this *may* overwrite the existing item, allocate
+    /// a new item, or return `Err(`[`StorageError::NoSlots`]`)`, at the discretion of the
+    /// implementation.
+    fn allocate_single<T: ?Sized + Pointee>(
+        &mut self,
+        meta: T::Metadata,
+    ) -> error::Result<Self::Handle<T>>;
+
+    /// Deallocate a previously allocated element
+    ///
+    /// # Safety
+    ///
+    /// The provided handle must be valid. See [`Self::Handle`].
     unsafe fn deallocate_single<T: ?Sized>(&mut self, handle: Self::Handle<T>);
 
+    /// Attempt to grow a previously allocated range up to the size of `capacity`.
+    ///
+    /// # Safetydeallocated
+    ///
+    /// The following conditions must be upheld:
+    /// - The provided handle must be valid. See [`Self::Handle`]
+    /// - `capacity` must be greater than or equal to the allocation's current length
     #[allow(unused_variables)]
-    unsafe fn try_grow<T>(&mut self, handle: Self::Handle<[T]>, capacity: usize) -> error::Result<Self::Handle<[T]>> {
+    unsafe fn try_grow<T>(
+        &mut self,
+        handle: Self::Handle<[T]>,
+        capacity: usize,
+    ) -> error::Result<Self::Handle<[T]>> {
         Err(StorageError::Unimplemented)
     }
 
+    /// Attempt to shrink a previously allocated range down to the size of `capacity`
+    ///
+    /// # Safety
+    ///
+    /// - The provided handle must be valid. See [`Self::Handle`]
+    /// - `capacity` must be less than or equal to the allocation's current length
     #[allow(unused_variables)]
-    unsafe fn try_shrink<T>(&mut self, handle: Self::Handle<[T]>, capacity: usize) -> error::Result<Self::Handle<[T]>> {
+    unsafe fn try_shrink<T>(
+        &mut self,
+        handle: Self::Handle<[T]>,
+        capacity: usize,
+    ) -> error::Result<Self::Handle<[T]>> {
         Err(StorageError::Unimplemented)
     }
 
+    /// Attempt to allocate an item into this storage, and initialize it with the provided `T`.
     fn create_single<T: Pointee>(
         &mut self,
         value: T,
@@ -71,6 +168,12 @@ pub unsafe trait Storage {
         Ok(handle)
     }
 
+    /// Deallocate an item from this storage, dropping the existing item.
+    ///
+    /// # Safety
+    ///
+    /// All the caveats of [`Storage::deallocate_single`], as well as
+    /// the requirement that the handle must contain a valid instance of `T`.
     unsafe fn drop_single<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>) {
         // SAFETY: `handle` is valid by safety requirements.
         let element = self.get(handle);
@@ -82,10 +185,28 @@ pub unsafe trait Storage {
     }
 }
 
+/// An extension to [`Storage`] for storages that can store multiple distinct items at once
+///
+/// # Safety
+///
+/// Implementations must not cause memory unsafety as long as the user follows the unsafe method
+/// invariants documented on this trait. Valid handles must be returned from [`Self::allocate`],
+/// UB must not be caused when [`Self::deallocate`] is called on a valid handle, etc.
 pub unsafe trait MultiItemStorage: Storage {
-    fn allocate<T: ?Sized + Pointee>(&mut self, meta: T::Metadata) -> error::Result<Self::Handle<T>>;
+    /// Attempt to allocate an item into this storage, returning [`StorageError`] on failure.
+    fn allocate<T: ?Sized + Pointee>(
+        &mut self,
+        meta: T::Metadata,
+    ) -> error::Result<Self::Handle<T>>;
+
+    /// Deallocate a previously allocated item
+    ///
+    /// # Safety
+    ///
+    /// The provided handle must be valid. See [`Self::Handle`](`Storage::Handle`).
     unsafe fn deallocate<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>);
 
+    /// Attempt to allocate an item into this storage, and initialize it with the provided `T`.
     fn create<T>(&mut self, value: T) -> core::result::Result<Self::Handle<T>, (StorageError, T)> {
         // Meta is always `()` for sized types
         let handle = match self.allocate(()) {
@@ -102,6 +223,12 @@ pub unsafe trait MultiItemStorage: Storage {
         Ok(handle)
     }
 
+    /// Deallocate an item from this storage, dropping the existing item.
+    ///
+    /// # Safety
+    ///
+    /// All the caveats of [`Storage::deallocate_single`], as well as
+    /// the requirement that the handle must contain a valid instance of `T`.
     unsafe fn drop<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>) {
         // SAFETY: `handle` is valid by safety requirements.
         let element = self.get(handle);
@@ -113,20 +240,59 @@ pub unsafe trait MultiItemStorage: Storage {
     }
 }
 
-pub unsafe trait ExactSizeStorage: Storage {
+/// An extension to [`Storage`] for storages that know the exact maximum size that can be stored
+/// within them.
+pub trait ExactSizeStorage: Storage {
+    /// Given a type and metadata, return whether the item would fit in this storage.
+    ///
+    /// This does not guarantee that a call to [`Storage::allocate_single`] or
+    /// [`MultiItemStorage::allocate`] would succeed, as they may fail for other reasons such as
+    /// alignment, or all possible slots already being in-use.
     fn will_fit<T: ?Sized + Pointee>(&self, meta: T::Metadata) -> bool;
-    fn max_range<T>(&self) -> usize {
-        for i in 0.. {
-            if self.will_fit::<[T]>(i) {
-                return i;
-            }
-        }
-        return usize::MAX;
-    }
+
+    /// Return the largest range of a sized type that could fit in this storage.
+    ///
+    /// This does not guarantee that a call to [`Storage::allocate_single`] or
+    /// [`MultiItemStorage::allocate`] would succeed, as they may fail for other reasons such as
+    /// alignment, or all possible slots already being in-use.
+    fn max_range<T>(&self) -> usize;
 }
 
+/// An extension to [`Storage`] for storages that may have their handles leaked. This allows a
+/// handle to outlive the [`Storage`] that created it, though does not guarantee that such handles
+/// can be dereferenced on their own.
+///
+/// # Safety
+///
+/// Handles from this storage, as well as their referenced data, must outlive this storage.
+/// This means a storage may be moved, or even dropped, while a pointer to its data lives.
+/// This removes the second safety invariant on [`Storage::get`] for this type.
 pub unsafe trait LeaksafeStorage: Storage {}
 
-pub unsafe trait FromLeakedPtrStorage: LeaksafeStorage {
-    unsafe fn unleak<T: ?Sized>(&self, leaked: *mut T) -> Self::Handle<T>;
+/// An extension of [`LeaksafeStorage`] for storages that can restore allocations from leaked
+/// pointers. Implementations may define certain safety requirements on when pointers are
+/// valid to unleak, however the following situations are required to work:
+///
+/// # Safety
+///
+/// - If [`Default`] is implemented, any default instance must unleak any other default instance
+/// - If using some separate 'backing', any storage with the same backing as another must be able
+///   unleak pointers from the other.
+pub unsafe trait FromLeakedStorage: LeaksafeStorage {
+    /// Convert a pointer back into a handle into this storage. One should be very careful with this
+    /// method - implementations may define requirements on exactly what counts as a storage with
+    /// the 'same backing' as another.
+    ///
+    /// # Safety
+    ///
+    /// The pointer provided must come from an instance that is 'unleak-compatible' with this
+    /// instance. Two situations are required to be unleak-compatible:
+    /// - If [`Default`] is implemented on this type, any two default instances are
+    ///   unleak-compatible
+    /// - If this type uses some 'backing', any two instances with the same backing are
+    ///   unleak-compatible
+    ///
+    /// Other situations may be valid or not depending on the type, and one should check the
+    /// implementor's documentation for any further details.
+    unsafe fn unleak_ptr<T: ?Sized>(&self, leaked: *mut T) -> Self::Handle<T>;
 }

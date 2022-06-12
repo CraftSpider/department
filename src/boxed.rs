@@ -8,8 +8,9 @@ use core::mem::ManuallyDrop;
 use core::ops::{CoerceUnsized, Deref, DerefMut};
 use core::ptr::Pointee;
 use core::{fmt, mem, ptr};
+use std::ptr::NonNull;
 
-use crate::base::{FromLeakedPtrStorage, LeaksafeStorage, Storage};
+use crate::base::{FromLeakedStorage, LeaksafeStorage, Storage};
 
 /// Storage-based implementation of [`Box`](std::boxed::Box).
 ///
@@ -131,60 +132,66 @@ where
         })
     }
 
-    pub fn into_raw(self) -> S::Handle<T>
-    where
-        Self: LeaksafeStorage,
-    {
-        self.handle
-    }
-
-    pub unsafe fn from_raw(handle: S::Handle<T>) -> Self
-    where
-        S: LeaksafeStorage + Default,
-    {
-        Box {
-            handle,
-            storage: ManuallyDrop::new(S::default()),
-        }
-    }
-
-    pub unsafe fn from_raw_in(handle: S::Handle<T>, storage: S) -> Self
+    /// Consumes and leaks this box, returning a mutable reference.
+    ///
+    /// The returned data lives for the rest of the program's life, dropping the reference will
+    /// cause a memory leak. If this isn't acceptable, use [`Box::from_raw`] or [`Box::from_raw_in`]
+    /// to regain ownership of this memory.
+    pub fn leak<'a>(this: Self) -> &'a mut T
     where
         S: LeaksafeStorage,
     {
-        Box {
-            handle,
-            storage: ManuallyDrop::new(storage),
-        }
+        unsafe { Box::into_raw(this).as_mut() }
     }
 
-    pub fn leak<'a>(mut self) -> &'a mut T
+    /// Consumes and leaks this box, returning a raw pointer.
+    ///
+    /// The returned data lives for the rest of the program's life, dropping the pointer will
+    /// cause a memory leak. If this isn't acceptable, use [`Box::from_raw`] or [`Box::from_raw_in`]
+    /// to regain ownership of this memory.
+    pub fn into_raw(mut this: Self) -> NonNull<T>
     where
         S: LeaksafeStorage,
     {
-        let out = unsafe { self.storage.get(self.handle).as_mut() };
-        unsafe { ManuallyDrop::drop(&mut self.storage); }
-        mem::forget(self);
+        let out = unsafe { this.storage.get(this.handle) };
+        unsafe {
+            ManuallyDrop::drop(&mut this.storage);
+        }
+        mem::forget(this);
         out
     }
 
-    pub unsafe fn unleak(ptr: *mut T) -> Box<T, S>
+    /// Construct a box from a raw pointer. After calling this function, the provided pointer
+    /// is owned by this [`Box`]. Dropping this box will run the storage destructor on the pointer.
+    ///
+    /// # Safety
+    ///
+    /// The provided pointer must be unleak-compatible for the default instance of the storage type.
+    /// See [`FromLeakedStorage::unleak_ptr`] for the exact definition of unleak-compatible.
+    pub unsafe fn from_raw(ptr: *mut T) -> Box<T, S>
     where
-        S: FromLeakedPtrStorage + Default,
+        S: FromLeakedStorage + Default,
     {
         let storage = S::default();
-        let handle = storage.unleak(ptr);
+        let handle = storage.unleak_ptr(ptr);
         Box {
             handle,
             storage: ManuallyDrop::new(storage),
         }
     }
 
-    pub unsafe fn unleak_in(ptr: *mut T, storage: S) -> Box<T, S>
+    /// Construct a box from a raw pointer. After calling this function, the provided pointer
+    /// is owned by this [`Box`]. Dropping this box will run the storage destructor on the pointer.
+    ///
+    /// # Safety
+    ///
+    /// The provided pointer must be unleak-compatible for the provided instance of the storage
+    /// type. See [`FromLeakedStorage::unleak_ptr`] for the exact definition of unleak-compatible.
+    pub unsafe fn from_raw_in(ptr: *mut T, storage: S) -> Box<T, S>
     where
-        S: FromLeakedPtrStorage,
+        S: FromLeakedStorage,
     {
-        let handle = storage.unleak(ptr);
+        let handle = storage.unleak_ptr(ptr);
         Box {
             handle,
             storage: ManuallyDrop::new(storage),

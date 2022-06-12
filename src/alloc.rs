@@ -13,9 +13,7 @@ use core::marker::Unsize;
 use core::ptr::{NonNull, Pointee};
 use rs_alloc::alloc::Global;
 
-use crate::base::{
-    Storage, MultiItemStorage, LeaksafeStorage, FromLeakedPtrStorage
-};
+use crate::base::{FromLeakedStorage, LeaksafeStorage, MultiItemStorage, Storage};
 use crate::error::StorageError;
 use crate::{error, utils};
 
@@ -49,13 +47,14 @@ impl<A: Allocator + Default> Default for Alloc<A> {
 unsafe impl<A: Allocator> Storage for Alloc<A> {
     type Handle<T: ?Sized + Pointee> = NonNull<T>;
 
-
-
     unsafe fn get<T: ?Sized + Pointee>(&self, handle: Self::Handle<T>) -> NonNull<T> {
         handle
     }
 
-    fn cast<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata=T::Metadata>>(&self, handle: Self::Handle<T>) -> Self::Handle<U> {
+    fn cast<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(
+        &self,
+        handle: Self::Handle<T>,
+    ) -> Self::Handle<U> {
         let (ptr, meta) = handle.to_raw_parts();
         NonNull::from_raw_parts(ptr, meta)
     }
@@ -142,8 +141,8 @@ unsafe impl<A: Allocator> MultiItemStorage for Alloc<A> {
 // SAFETY: Rust requires that implementors of `Allocator` are leak-safe currently
 unsafe impl<A: Allocator> LeaksafeStorage for Alloc<A> {}
 
-unsafe impl<A: Allocator> FromLeakedPtrStorage for Alloc<A> {
-    unsafe fn unleak<T: ?Sized>(&self, leaked: *mut T) -> Self::Handle<T> {
+unsafe impl<A: Allocator> FromLeakedStorage for Alloc<A> {
+    unsafe fn unleak_ptr<T: ?Sized>(&self, leaked: *mut T) -> Self::Handle<T> {
         NonNull::new(leaked).unwrap()
     }
 }

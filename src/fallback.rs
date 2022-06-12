@@ -7,7 +7,7 @@
 use core::marker::Unsize;
 use core::ptr::{NonNull, Pointee};
 
-use crate::base::{Storage, MultiItemStorage, ExactSizeStorage, LeaksafeStorage};
+use crate::base::{ExactSizeStorage, LeaksafeStorage, MultiItemStorage, Storage};
 use crate::error;
 
 /// A storage which attempts to store in one storage, then falls back to a second
@@ -55,24 +55,38 @@ where
         }
     }
 
-    fn cast<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata=T::Metadata>>(&self, handle: Self::Handle<T>) -> Self::Handle<U> {
+    fn cast<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(
+        &self,
+        handle: Self::Handle<T>,
+    ) -> Self::Handle<U> {
         match handle {
             FallbackHandle::First(handle) => FallbackHandle::First(self.first.cast(handle)),
             FallbackHandle::Second(handle) => FallbackHandle::Second(self.second.cast(handle)),
         }
     }
 
-    unsafe fn coerce<T: ?Sized + Unsize<U>, U: ?Sized>(&self, handle: Self::Handle<T>) -> Self::Handle<U> {
-         match handle {
-             FallbackHandle::First(handle) => FallbackHandle::First(self.first.coerce(handle)),
-             FallbackHandle::Second(handle) => FallbackHandle::Second(self.second.coerce(handle)),
-         }
+    unsafe fn coerce<T: ?Sized + Unsize<U>, U: ?Sized>(
+        &self,
+        handle: Self::Handle<T>,
+    ) -> Self::Handle<U> {
+        match handle {
+            FallbackHandle::First(handle) => FallbackHandle::First(self.first.coerce(handle)),
+            FallbackHandle::Second(handle) => FallbackHandle::Second(self.second.coerce(handle)),
+        }
     }
 
-    fn allocate_single<T: ?Sized + Pointee>(&mut self, meta: T::Metadata) -> error::Result<Self::Handle<T>> {
-        self.first.allocate_single(meta)
+    fn allocate_single<T: ?Sized + Pointee>(
+        &mut self,
+        meta: T::Metadata,
+    ) -> error::Result<Self::Handle<T>> {
+        self.first
+            .allocate_single(meta)
             .map(FallbackHandle::First)
-            .or_else(|_| self.second.allocate_single(meta).map(FallbackHandle::Second))
+            .or_else(|_| {
+                self.second
+                    .allocate_single(meta)
+                    .map(FallbackHandle::Second)
+            })
     }
 
     unsafe fn deallocate_single<T: ?Sized>(&mut self, handle: Self::Handle<T>) {
@@ -82,21 +96,37 @@ where
         }
     }
 
-    unsafe fn try_grow<T>(&mut self, handle: Self::Handle<[T]>, capacity: usize) -> error::Result<Self::Handle<[T]>> {
+    unsafe fn try_grow<T>(
+        &mut self,
+        handle: Self::Handle<[T]>,
+        capacity: usize,
+    ) -> error::Result<Self::Handle<[T]>> {
         // TODO: Try to reallocate into second
         match handle {
-            FallbackHandle::First(handle) => self.first.try_grow(handle, capacity)
+            FallbackHandle::First(handle) => self
+                .first
+                .try_grow(handle, capacity)
                 .map(FallbackHandle::First),
-            FallbackHandle::Second(handle) => self.second.try_shrink(handle, capacity)
+            FallbackHandle::Second(handle) => self
+                .second
+                .try_shrink(handle, capacity)
                 .map(FallbackHandle::Second),
         }
     }
 
-    unsafe fn try_shrink<T>(&mut self, handle: Self::Handle<[T]>, capacity: usize) -> error::Result<Self::Handle<[T]>> {
+    unsafe fn try_shrink<T>(
+        &mut self,
+        handle: Self::Handle<[T]>,
+        capacity: usize,
+    ) -> error::Result<Self::Handle<[T]>> {
         match handle {
-            FallbackHandle::First(handle) => self.first.try_shrink(handle, capacity)
+            FallbackHandle::First(handle) => self
+                .first
+                .try_shrink(handle, capacity)
                 .map(FallbackHandle::First),
-            FallbackHandle::Second(handle) => self.second.try_shrink(handle, capacity)
+            FallbackHandle::Second(handle) => self
+                .second
+                .try_shrink(handle, capacity)
                 .map(FallbackHandle::Second),
         }
     }
@@ -107,8 +137,12 @@ where
     S1: MultiItemStorage,
     S2: MultiItemStorage,
 {
-    fn allocate<T: ?Sized + Pointee>(&mut self, meta: T::Metadata) -> error::Result<Self::Handle<T>> {
-        self.first.allocate(meta)
+    fn allocate<T: ?Sized + Pointee>(
+        &mut self,
+        meta: T::Metadata,
+    ) -> error::Result<Self::Handle<T>> {
+        self.first
+            .allocate(meta)
             .map(FallbackHandle::First)
             .or_else(|_| self.second.allocate(meta).map(FallbackHandle::Second))
     }
@@ -121,7 +155,7 @@ where
     }
 }
 
-unsafe impl<S1, S2> ExactSizeStorage for FallbackStorage<S1, S2>
+impl<S1, S2> ExactSizeStorage for FallbackStorage<S1, S2>
 where
     S1: ExactSizeStorage,
     S2: ExactSizeStorage,
@@ -139,7 +173,8 @@ unsafe impl<S1, S2> LeaksafeStorage for FallbackStorage<S1, S2>
 where
     S1: LeaksafeStorage,
     S2: LeaksafeStorage,
-{}
+{
+}
 
 /*impl<S1, S2> ElementStorage for FallbackStorage<S1, S2>
 where
