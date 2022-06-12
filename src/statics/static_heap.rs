@@ -7,8 +7,7 @@ use core::ptr::{NonNull, Pointee};
 use core::{fmt, mem, ptr};
 
 use crate::base::{
-    ElementStorage, LeaksafeStorage, MultiElementStorage, MultiRangeStorage, RangeStorage,
-    SingleElementStorage, SingleRangeStorage, StorageSafe,
+    ExactSizeStorage, FromLeakedStorage, LeaksafeStorage, MultiItemStorage, Storage, StorageSafe,
 };
 use crate::error::{Result, StorageError};
 use crate::utils;
@@ -37,7 +36,9 @@ impl<S, const N: usize> StaticHeap<S, N> {
     pub const fn new() -> StaticHeap<S, N> {
         StaticHeap {
             used: spin::Mutex::new([false; N]),
-            storage: UnsafeCell::new(MaybeUninit::uninit_array()),
+            storage: UnsafeCell::new(unsafe {
+                MaybeUninit::<[MaybeUninit<S>; N]>::uninit().assume_init()
+            }),
         }
     }
 }
@@ -131,7 +132,7 @@ where
 
     fn grow_move<T>(
         &self,
-        handle: <&Self as RangeStorage>::Handle<T>,
+        handle: <&Self as Storage>::Handle<[T]>,
         new_layout: Layout,
     ) -> Option<usize> {
         let mut used = self.used.lock();
@@ -162,86 +163,51 @@ where
     }
 }
 
-impl<S, const N: usize> ElementStorage for &StaticHeap<S, N>
+unsafe impl<S, const N: usize> Storage for &StaticHeap<S, N>
 where
     S: StorageSafe,
 {
-    type Handle<T: ?Sized + Pointee> = HeapHandle<T>;
+    type Handle<T: ?Sized> = HeapHandle<T>;
 
-    unsafe fn get<T: ?Sized + Pointee>(&self, handle: Self::Handle<T>) -> NonNull<T> {
+    unsafe fn get<T: ?Sized>(&self, handle: Self::Handle<T>) -> NonNull<T> {
         let ptr = NonNull::new(ptr::addr_of_mut!((*self.storage.get())[handle.0]))
             .expect("Valid handle")
             .cast();
         NonNull::from_raw_parts(ptr, handle.1)
+    }
+
+    fn cast<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(
+        &self,
+        handle: Self::Handle<T>,
+    ) -> Self::Handle<U> {
+        HeapHandle(handle.0, handle.1)
     }
 
     unsafe fn coerce<T: ?Sized + Pointee + Unsize<U>, U: ?Sized + Pointee>(
         &self,
         handle: Self::Handle<T>,
     ) -> Self::Handle<U> {
-        let element = <Self as ElementStorage>::get(self, handle);
+        let element = <Self as Storage>::get(self, handle);
         let meta = (element.as_ptr() as *mut U).to_raw_parts().1;
         HeapHandle(handle.0, meta)
     }
-}
 
-impl<S, const N: usize> SingleElementStorage for &StaticHeap<S, N>
-where
-    S: StorageSafe,
-{
     fn allocate_single<T: ?Sized + Pointee>(
         &mut self,
         meta: T::Metadata,
     ) -> Result<Self::Handle<T>> {
-        <Self as MultiElementStorage>::allocate(self, meta)
+        self.allocate(meta)
     }
 
-    unsafe fn deallocate_single<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>) {
-        <Self as MultiElementStorage>::deallocate(self, handle)
-    }
-}
-
-impl<S, const N: usize> MultiElementStorage for &StaticHeap<S, N>
-where
-    S: StorageSafe,
-{
-    fn allocate<T: ?Sized + Pointee>(&mut self, meta: T::Metadata) -> Result<Self::Handle<T>> {
-        let layout = utils::layout_of::<T>(meta);
-        utils::validate_layout_for::<[S; N]>(layout)?;
-        let start = self.find_lock(layout.size())?;
-        Ok(HeapHandle(start, meta))
-    }
-
-    unsafe fn deallocate<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>) {
-        let layout = Layout::for_value(<Self as ElementStorage>::get(self, handle).as_ref());
-        let mut used = self.used.lock();
-        self.unlock_range(&mut used, handle.0..(handle.0 + blocks::<S>(layout.size())));
-    }
-}
-
-impl<S, const N: usize> RangeStorage for &StaticHeap<S, N>
-where
-    S: StorageSafe,
-{
-    // Handle::1 is the capacity *in terms of T*
-    type Handle<T> = HeapHandle<[T]>;
-
-    fn maximum_capacity<T>(&self) -> usize {
-        (mem::size_of::<S>() * N) / mem::size_of::<T>()
-    }
-
-    unsafe fn get<T>(&self, handle: Self::Handle<T>) -> NonNull<[MaybeUninit<T>]> {
-        let ptr = NonNull::new(ptr::addr_of_mut!((*self.storage.get())[handle.0]))
-            .expect("Valid handle")
-            .cast();
-        NonNull::from_raw_parts(ptr, handle.1)
+    unsafe fn deallocate_single<T: ?Sized>(&mut self, handle: Self::Handle<T>) {
+        self.deallocate(handle)
     }
 
     unsafe fn try_grow<T>(
         &mut self,
-        handle: Self::Handle<T>,
+        handle: Self::Handle<[T]>,
         capacity: usize,
-    ) -> Result<Self::Handle<T>> {
+    ) -> Result<Self::Handle<[T]>> {
         debug_assert!(capacity >= handle.1);
         // We need to check if we can grow in-place. If not, then we need to see if we have any
         // open space for the new range, ignoring ourselves as we're allowed to overwrite that.
@@ -259,9 +225,9 @@ where
 
     unsafe fn try_shrink<T>(
         &mut self,
-        handle: Self::Handle<T>,
+        handle: Self::Handle<[T]>,
         capacity: usize,
-    ) -> Result<Self::Handle<T>> {
+    ) -> Result<Self::Handle<[T]>> {
         debug_assert!(capacity <= handle.1);
         self.unlock_range(
             &mut self.used.lock(),
@@ -271,39 +237,58 @@ where
     }
 }
 
-impl<S, const N: usize> SingleRangeStorage for &StaticHeap<S, N>
+unsafe impl<S, const N: usize> MultiItemStorage for &StaticHeap<S, N>
 where
     S: StorageSafe,
 {
-    fn allocate_single<T>(&mut self, capacity: usize) -> Result<Self::Handle<T>> {
-        <Self as MultiRangeStorage>::allocate(self, capacity)
-    }
-
-    unsafe fn deallocate_single<T>(&mut self, handle: Self::Handle<T>) {
-        <Self as MultiRangeStorage>::deallocate(self, handle)
-    }
-}
-
-impl<S, const N: usize> MultiRangeStorage for &StaticHeap<S, N>
-where
-    S: StorageSafe,
-{
-    fn allocate<T>(&mut self, capacity: usize) -> Result<Self::Handle<T>> {
-        let layout = Layout::array::<T>(capacity).map_err(|_| StorageError::exceeds_max())?;
+    fn allocate<T: ?Sized + Pointee>(&mut self, meta: T::Metadata) -> Result<Self::Handle<T>> {
+        let layout = utils::layout_of::<T>(meta);
         utils::validate_layout_for::<[S; N]>(layout)?;
         let start = self.find_lock(layout.size())?;
-        Ok(HeapHandle(start, capacity))
+        Ok(HeapHandle(start, meta))
     }
 
-    unsafe fn deallocate<T>(&mut self, handle: Self::Handle<T>) {
-        let layout = Layout::for_value(<Self as ElementStorage>::get(self, handle).as_ref());
+    unsafe fn deallocate<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>) {
+        let layout = Layout::for_value(<Self as Storage>::get(self, handle).as_ref());
         let mut used = self.used.lock();
         self.unlock_range(&mut used, handle.0..(handle.0 + blocks::<S>(layout.size())));
     }
 }
 
+impl<S, const N: usize> ExactSizeStorage for &StaticHeap<S, N>
+where
+    S: StorageSafe,
+{
+    fn will_fit<T: ?Sized + Pointee>(&self, meta: T::Metadata) -> bool {
+        let layout = utils::layout_of::<T>(meta);
+        mem::size_of::<S>() >= layout.size()
+    }
+
+    fn max_range<T>(&self) -> usize {
+        let layout = Layout::new::<T>();
+        (mem::size_of::<S>() * N) / layout.size()
+    }
+}
+
 // SAFETY: Handles returned from a StaticHeap don't move and are valid until deallocated
 unsafe impl<S, const N: usize> LeaksafeStorage for &'static StaticHeap<S, N> where S: StorageSafe {}
+
+unsafe impl<S, const N: usize> FromLeakedStorage for &'static StaticHeap<S, N>
+where
+    S: StorageSafe,
+{
+    unsafe fn unleak_ptr<T: ?Sized>(&self, leaked: *mut T) -> Self::Handle<T> {
+        let meta = ptr::metadata(leaked);
+
+        let offset: usize = leaked
+            .cast::<S>()
+            .offset_from(self.storage.get() as *const S)
+            .try_into()
+            .unwrap();
+
+        HeapHandle(offset, meta)
+    }
+}
 
 // SAFETY: This type only accesses the inner cell when atomically claimed
 unsafe impl<S: Send + StorageSafe, const N: usize> Send for StaticHeap<S, N> {}
@@ -395,17 +380,20 @@ mod tests {
         assert_eq!(&*v4, &[7, 8]);
     }
 
-    // TODO: Add this back once leaking is set up
-    /*#[test]
+    #[test]
     fn test_leak() {
         static HEAP: StaticHeap<usize, 16> = StaticHeap::new();
 
         let v1 = Box::new_in(1, &HEAP);
 
-        let i = v1.leak();
+        let i = Box::leak(v1);
 
         assert_eq!(*i, 1);
         *i = -1;
         assert_eq!(*i, -1);
-    }*/
+
+        let v1 = unsafe { Box::from_raw_in(i, &HEAP) };
+
+        assert_eq!(*v1, -1);
+    }
 }

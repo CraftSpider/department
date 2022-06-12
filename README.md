@@ -21,6 +21,7 @@ want specific storages and collections
   - `inline`: Inline on-the-stack storages
   - `static`: Storages backed by static memory, stored in the binary
   - `alloc`: Storages backed by a standard allocator. Requires the `alloc` crate to be available
+  - `fallback`: Storage which attempts to store something in one, then falls back to a second storage
 - `all_collections`: Enable all collection types
   - `box`: Include the `Box` type
   - `vec`: Include the `Vec` type
@@ -31,8 +32,6 @@ want specific storages and collections
 In the future, more types of storages and collections need to be added, hopefully
 up to `std` parity. Tests should be added for all storage types, with coverage for most
 edge cases (ZST, alignment requirements, etc).
-
-More design is needed around how to handle leaking, LeaksafeStorage, etc.
 
 ### Missing Storages
 

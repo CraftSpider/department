@@ -10,10 +10,7 @@
 // Needed to get a layout from just a type and metadata in `utils::layout_of`
 #![feature(layout_for_ptr)]
 // Needed to implement unsizing coercion via `Box`
-#![feature(coerce_unsized)]
-// A helper for initializing arrays. Could be replaced, but low priority compared to above
-// requirements.
-#![feature(maybe_uninit_uninit_array, const_maybe_uninit_uninit_array)]
+#![cfg_attr(feature = "coerce-unsized", feature(coerce_unsized))]
 #![warn(
     missing_docs,
     elided_lifetimes_in_paths,

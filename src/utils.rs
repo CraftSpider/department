@@ -6,7 +6,7 @@ use crate::error::Result;
 use crate::error::StorageError;
 
 pub(crate) fn layout_of<T: ?Sized + Pointee>(meta: T::Metadata) -> Layout {
-    let pointer = ptr::from_raw_parts(ptr::null_mut(), meta);
+    let pointer = ptr::from_raw_parts(ptr::null(), meta);
     // SAFETY: The provided metadata is passed by value, and thus must be a valid instance of the
     //         metadata for `T`
     unsafe { Layout::for_value_raw::<T>(pointer) }
@@ -14,10 +14,6 @@ pub(crate) fn layout_of<T: ?Sized + Pointee>(meta: T::Metadata) -> Layout {
 
 pub(crate) fn validate_layout<T: ?Sized + Pointee, S>(meta: T::Metadata) -> Result<()> {
     validate_layout_for::<S>(layout_of::<T>(meta))
-}
-
-pub(crate) fn validate_array_layout<T, S>(capacity: usize) -> Result<()> {
-    validate_layout_for::<S>(Layout::array::<T>(capacity).map_err(|_| StorageError::exceeds_max())?)
 }
 
 pub(crate) fn validate_layout_for<S>(layout: Layout) -> Result<()> {

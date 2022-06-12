@@ -4,21 +4,21 @@ use core::borrow::Borrow;
 use core::ops::Deref;
 use core::{fmt, ops};
 
-use crate::base::SingleRangeStorage;
+use crate::base::Storage;
 use crate::collections::Vec;
 use crate::error::Result;
 
 /// Storage based implementation of [`String`](std::string::String)
 pub struct String<S>
 where
-    S: SingleRangeStorage,
+    S: Storage,
 {
     inner: Vec<u8, S>,
 }
 
 impl<S> String<S>
 where
-    S: SingleRangeStorage + Default,
+    S: Storage + Default,
 {
     /// Create a new, empty `String` with a default instance of the desired storage
     ///
@@ -39,7 +39,7 @@ where
 
 impl<S> String<S>
 where
-    S: SingleRangeStorage,
+    S: Storage,
 {
     /// Create a new, empty `String` with the provided storage instance
     ///
@@ -62,7 +62,7 @@ where
 
 impl<S> fmt::Debug for String<S>
 where
-    S: SingleRangeStorage,
+    S: Storage,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", &**self)
@@ -71,7 +71,7 @@ where
 
 impl<S> fmt::Display for String<S>
 where
-    S: SingleRangeStorage,
+    S: Storage,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", &**self)
@@ -80,7 +80,7 @@ where
 
 impl<S> Default for String<S>
 where
-    S: SingleRangeStorage + Default,
+    S: Storage + Default,
 {
     fn default() -> String<S> {
         String::new()
@@ -89,7 +89,7 @@ where
 
 impl<S> From<&str> for String<S>
 where
-    S: SingleRangeStorage + Default,
+    S: Storage + Default,
 {
     fn from(str: &str) -> Self {
         String {
@@ -100,7 +100,7 @@ where
 
 impl<S> From<(&str, S)> for String<S>
 where
-    S: SingleRangeStorage,
+    S: Storage,
 {
     fn from(pair: (&str, S)) -> Self {
         String {
@@ -111,7 +111,7 @@ where
 
 impl<S> ops::Add<&str> for String<S>
 where
-    S: SingleRangeStorage,
+    S: Storage,
 {
     type Output = String<S>;
 
@@ -123,7 +123,7 @@ where
 
 impl<S> Deref for String<S>
 where
-    S: SingleRangeStorage,
+    S: Storage,
 {
     type Target = str;
 
@@ -135,7 +135,7 @@ where
 
 impl<S> AsRef<str> for String<S>
 where
-    S: SingleRangeStorage,
+    S: Storage,
 {
     fn as_ref(&self) -> &str {
         &**self
@@ -144,7 +144,7 @@ where
 
 impl<S> Borrow<str> for String<S>
 where
-    S: SingleRangeStorage,
+    S: Storage,
 {
     fn borrow(&self) -> &str {
         &**self
