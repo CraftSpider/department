@@ -197,7 +197,7 @@ where
     S: Storage,
 {
     fn as_ref(&self) -> &[T] {
-        &*self
+        &**self
     }
 }
 
@@ -206,7 +206,7 @@ where
     S: Storage,
 {
     fn as_mut(&mut self) -> &mut [T] {
-        &mut *self
+        &mut **self
     }
 }
 
@@ -215,7 +215,7 @@ where
     S: Storage,
 {
     fn borrow(&self) -> &[T] {
-        &*self
+        &**self
     }
 }
 
@@ -224,7 +224,7 @@ where
     S: Storage,
 {
     fn borrow_mut(&mut self) -> &mut [T] {
-        &mut *self
+        &mut **self
     }
 }
 

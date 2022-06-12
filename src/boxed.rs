@@ -254,7 +254,7 @@ where
     S: Storage,
 {
     fn as_ref(&self) -> &T {
-        &*self
+        &**self
     }
 }
 
@@ -264,7 +264,7 @@ where
     S: Storage,
 {
     fn as_mut(&mut self) -> &mut T {
-        &mut *self
+        &mut **self
     }
 }
 
@@ -274,7 +274,7 @@ where
     S: Storage,
 {
     fn borrow(&self) -> &T {
-        &*self
+        &**self
     }
 }
 
@@ -284,7 +284,7 @@ where
     S: Storage,
 {
     fn borrow_mut(&mut self) -> &mut T {
-        &mut *self
+        &mut **self
     }
 }
 
@@ -331,7 +331,7 @@ where
     S: Storage + Default,
 {
     fn clone(&self) -> Box<T, S> {
-        let new_item = T::clone(&*self);
+        let new_item = T::clone(&**self);
         Box::new(new_item)
     }
 }
@@ -352,7 +352,7 @@ where
     S: Storage,
 {
     fn eq(&self, other: &Self) -> bool {
-        T::eq(&*self, &*other)
+        T::eq(&**self, &**other)
     }
 }
 
@@ -369,7 +369,7 @@ where
     S: Storage,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        T::partial_cmp(&*self, &*other)
+        T::partial_cmp(&**self, &**other)
     }
 }
 
@@ -379,7 +379,7 @@ where
     S: Storage,
 {
     fn cmp(&self, other: &Self) -> Ordering {
-        T::cmp(&*self, &*other)
+        T::cmp(&**self, &**other)
     }
 }
 
