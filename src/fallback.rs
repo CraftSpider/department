@@ -213,7 +213,8 @@ mod private {
         S1: Storage,
         S2: Storage,
         T: ?Sized,
-    {}
+    {
+    }
 }
 
 use private::FallbackHandle;

@@ -224,7 +224,10 @@ mod private {
         S: Storage,
         T: ?Sized,
     {
-        fn map<U: ?Sized, F: FnOnce(S::Handle<T>) -> S::Handle<U>>(self, f: F) -> DebugHandle<S, U> {
+        fn map<U: ?Sized, F: FnOnce(S::Handle<T>) -> S::Handle<U>>(
+            self,
+            f: F,
+        ) -> DebugHandle<S, U> {
             DebugHandle {
                 id: self.id,
                 handle: f(self.handle),
