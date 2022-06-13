@@ -355,3 +355,5 @@ mod tests {
         unsafe { s.get(h1) };
     }
 }
+
+use private::DebugHandle;
