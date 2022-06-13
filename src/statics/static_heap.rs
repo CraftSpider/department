@@ -20,9 +20,6 @@ fn blocks_for<S, T>(capacity: usize) -> usize {
     (mem::size_of::<T>() * capacity) / mem::size_of::<S>()
 }
 
-// TODO: Safety comments for this. There may be race conditions with the UnsafeCell, should
-//       find a way to better architect for easier safety reasoning
-
 /// A storage based on a static variable, supporting heap-like behavior but compiled into
 /// the binary. Useful for environments with no allocator support but sufficient space for a
 /// slightly larger program.
@@ -156,8 +153,7 @@ where
         let new_start = new_range.start;
         self.lock_range(&mut used, new_range);
 
-        // SAFETY: Satisfies internal requirement that the cell is only accessed while the mutex
-        //         is locked
+        // SAFETY: We only access slices of the mutex we have a lock on
         unsafe { &mut *self.storage.get() }.copy_within(old_range, new_start);
 
         Some(new_start)
@@ -171,6 +167,7 @@ where
     type Handle<T: ?Sized> = HeapHandle<T>;
 
     unsafe fn get<T: ?Sized>(&self, handle: Self::Handle<T>) -> NonNull<T> {
+        // SAFETY: We only access slices of the mutex this handle has a lock on
         let ptr = NonNull::new(ptr::addr_of_mut!((*self.storage.get())[handle.0]))
             .expect("Valid handle")
             .cast();
@@ -290,6 +287,7 @@ where
 
         let offset: usize = leaked
             .cast::<S>()
+            // We don't need a lock here because we never dereference the pointer
             .offset_from(self.storage.get() as *const S)
             .try_into()
             .unwrap();
