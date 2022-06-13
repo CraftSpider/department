@@ -10,21 +10,21 @@ use crate::statics::traits::StaticStorage;
 use crate::utils;
 
 /// Static multi-element storage implementation
-pub struct MultiItem<S: 'static, const N: usize> {
+pub struct MultiStatic<S: 'static, const N: usize> {
     used: [bool; N],
     storage: &'static StorageCell<[S; N]>,
 }
 
-impl<S: 'static, const N: usize> StaticStorage<[S; N]> for MultiItem<S, N> {
-    fn take_cell(storage: &'static StorageCell<[S; N]>) -> MultiItem<S, N> {
-        MultiItem {
+impl<S: 'static, const N: usize> StaticStorage<[S; N]> for MultiStatic<S, N> {
+    fn take_cell(storage: &'static StorageCell<[S; N]>) -> MultiStatic<S, N> {
+        MultiStatic {
             used: [false; N],
             storage,
         }
     }
 }
 
-unsafe impl<S, const N: usize> Storage for MultiItem<S, N>
+unsafe impl<S, const N: usize> Storage for MultiStatic<S, N>
 where
     S: StorageSafe,
 {
@@ -91,7 +91,7 @@ where
     }
 }
 
-unsafe impl<S, const N: usize> MultiItemStorage for MultiItem<S, N>
+unsafe impl<S, const N: usize> MultiItemStorage for MultiStatic<S, N>
 where
     S: StorageSafe,
 {
@@ -114,7 +114,7 @@ where
     }
 }
 
-impl<S, const N: usize> ExactSizeStorage for MultiItem<S, N>
+impl<S, const N: usize> ExactSizeStorage for MultiStatic<S, N>
 where
     S: StorageSafe,
 {
@@ -129,7 +129,7 @@ where
     }
 }
 
-impl<S, const N: usize> Drop for MultiItem<S, N> {
+impl<S, const N: usize> Drop for MultiStatic<S, N> {
     fn drop(&mut self) {
         self.storage.release()
     }

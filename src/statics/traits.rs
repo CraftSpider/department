@@ -5,8 +5,8 @@ mod sealed {
 
     pub trait Sealed {}
 
-    impl<S> Sealed for statics::SingleItem<S> {}
-    impl<S, const N: usize> Sealed for statics::MultiItem<S, N> {}
+    impl<S> Sealed for statics::SingleStatic<S> {}
+    impl<S, const N: usize> Sealed for statics::MultiStatic<S, N> {}
 }
 
 /// Trait representing storages that can be created from a static `StorageCell`.

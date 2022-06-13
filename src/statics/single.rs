@@ -10,15 +10,15 @@ use crate::error::{Result, StorageError};
 use crate::utils;
 
 /// Static single-element storage implementation
-pub struct SingleItem<S: 'static>(&'static StorageCell<S>);
+pub struct SingleStatic<S: 'static>(&'static StorageCell<S>);
 
-impl<S: 'static> StaticStorage<S> for SingleItem<S> {
-    fn take_cell(storage: &'static StorageCell<S>) -> SingleItem<S> {
-        SingleItem(storage)
+impl<S: 'static> StaticStorage<S> for SingleStatic<S> {
+    fn take_cell(storage: &'static StorageCell<S>) -> SingleStatic<S> {
+        SingleStatic(storage)
     }
 }
 
-unsafe impl<S> Storage for SingleItem<S>
+unsafe impl<S> Storage for SingleStatic<S>
 where
     S: StorageSafe,
 {
@@ -83,7 +83,7 @@ where
     }
 }
 
-impl<S> ExactSizeStorage for SingleItem<S>
+impl<S> ExactSizeStorage for SingleStatic<S>
 where
     S: StorageSafe,
 {
@@ -98,13 +98,13 @@ where
     }
 }
 
-impl<S> fmt::Debug for SingleItem<S> {
+impl<S> fmt::Debug for SingleStatic<S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("SingleElement").finish_non_exhaustive()
     }
 }
 
-impl<S> Drop for SingleItem<S> {
+impl<S> Drop for SingleStatic<S> {
     fn drop(&mut self) {
         self.0.release()
     }
@@ -131,17 +131,70 @@ mod tests {
     fn test_box() {
         static FOO: StorageCell<[usize; 4]> = StorageCell::new([0; 4]);
 
-        let b = Box::<_, SingleItem<[usize; 4]>>::new_in([1, 2], FOO.claim());
+        let b = Box::<_, SingleStatic<[usize; 4]>>::new_in([1, 2], FOO.claim());
         let b = b.coerce::<[i32]>();
 
         assert_eq!(&*b, &[1, 2]);
     }
 
     #[test]
+    fn test_size() {
+        static FOO: StorageCell<[u8; 4]> = StorageCell::new([0; 4]);
+
+        type Box<T> = crate::boxed::Box<T, SingleStatic<[u8; 4]>>;
+
+        Box::<[u8; 4]>::try_new_in([1, 2, 3, 4], FOO.claim()).unwrap();
+        Box::<[u8; 8]>::try_new_in([1, 2, 3, 4, 5, 6, 7, 8], FOO.claim()).unwrap_err();
+    }
+
+    #[test]
+    fn test_align() {
+        static FOO1: StorageCell<[u8; 4]> = StorageCell::new([0; 4]);
+        static FOO2: StorageCell<[u16; 4]> = StorageCell::new([0; 4]);
+        static FOO4: StorageCell<[u32; 4]> = StorageCell::new([0; 4]);
+        static FOO8: StorageCell<[u64; 4]> = StorageCell::new([0; 4]);
+
+        type Box<T, S> = crate::boxed::Box<T, SingleStatic<[S; 4]>>;
+
+        #[derive(Debug)]
+        #[repr(align(1))]
+        struct Align1;
+        #[derive(Debug)]
+        #[repr(align(2))]
+        struct Align2;
+        #[derive(Debug)]
+        #[repr(align(4))]
+        struct Align4;
+        #[derive(Debug)]
+        #[repr(align(8))]
+        struct Align8;
+
+        Box::<_, u8>::try_new_in(Align1, FOO1.claim()).unwrap();
+        Box::<_, u8>::try_new_in(Align2, FOO1.claim()).unwrap_err();
+        Box::<_, u8>::try_new_in(Align4, FOO1.claim()).unwrap_err();
+        Box::<_, u8>::try_new_in(Align8, FOO1.claim()).unwrap_err();
+
+        Box::<_, u16>::try_new_in(Align1, FOO2.claim()).unwrap();
+        Box::<_, u16>::try_new_in(Align2, FOO2.claim()).unwrap();
+        Box::<_, u16>::try_new_in(Align4, FOO2.claim()).unwrap_err();
+        Box::<_, u16>::try_new_in(Align8, FOO2.claim()).unwrap_err();
+
+        Box::<_, u32>::try_new_in(Align1, FOO4.claim()).unwrap();
+        Box::<_, u32>::try_new_in(Align2, FOO4.claim()).unwrap();
+        Box::<_, u32>::try_new_in(Align4, FOO4.claim()).unwrap();
+        Box::<_, u32>::try_new_in(Align8, FOO4.claim()).unwrap_err();
+
+        Box::<_, u64>::try_new_in(Align1, FOO8.claim()).unwrap();
+        Box::<_, u64>::try_new_in(Align2, FOO8.claim()).unwrap();
+        Box::<_, u64>::try_new_in(Align4, FOO8.claim()).unwrap();
+        Box::<_, u64>::try_new_in(Align8, FOO8.claim()).unwrap();
+    }
+
+    #[test]
     fn test_zst() {
         static FOO: StorageCell<[usize; 0]> = StorageCell::new([]);
 
-        let b = Box::<(), SingleItem<[usize; 0]>>::new_in((), FOO.claim());
+        let b = Box::<(), SingleStatic<[usize; 0]>>::new_in((), FOO.claim());
 
         assert_eq!(*b, ());
     }
@@ -154,7 +207,7 @@ mod tests {
         let mut handles = Vec::new();
         for i in 0..100 {
             handles.push(std::thread::spawn(move || {
-                let storage = FOO.try_claim::<SingleItem<_>>();
+                let storage = FOO.try_claim::<SingleStatic<_>>();
                 if storage.is_some() {
                     println!("Thread {} claimed storage", i);
                     std::thread::sleep(Duration::from_millis(1));

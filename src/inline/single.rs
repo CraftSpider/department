@@ -148,6 +148,52 @@ mod tests {
     }
 
     #[test]
+    fn test_size() {
+        type Box<T> = crate::boxed::Box<T, SingleInline<[u8; 4]>>;
+
+        Box::<[u8; 4]>::try_new([1, 2, 3, 4]).unwrap();
+        Box::<[u8; 8]>::try_new([1, 2, 3, 4, 5, 6, 7, 8]).unwrap_err();
+    }
+
+    #[test]
+    fn test_align() {
+        type Box<T, S> = crate::boxed::Box<T, SingleInline<[S; 4]>>;
+
+        #[derive(Debug)]
+        #[repr(align(1))]
+        struct Align1;
+        #[derive(Debug)]
+        #[repr(align(2))]
+        struct Align2;
+        #[derive(Debug)]
+        #[repr(align(4))]
+        struct Align4;
+        #[derive(Debug)]
+        #[repr(align(8))]
+        struct Align8;
+
+        Box::<_, u8>::try_new(Align1).unwrap();
+        Box::<_, u8>::try_new(Align2).unwrap_err();
+        Box::<_, u8>::try_new(Align4).unwrap_err();
+        Box::<_, u8>::try_new(Align8).unwrap_err();
+
+        Box::<_, u16>::try_new(Align1).unwrap();
+        Box::<_, u16>::try_new(Align2).unwrap();
+        Box::<_, u16>::try_new(Align4).unwrap_err();
+        Box::<_, u16>::try_new(Align8).unwrap_err();
+
+        Box::<_, u32>::try_new(Align1).unwrap();
+        Box::<_, u32>::try_new(Align2).unwrap();
+        Box::<_, u32>::try_new(Align4).unwrap();
+        Box::<_, u32>::try_new(Align8).unwrap_err();
+
+        Box::<_, u64>::try_new(Align1).unwrap();
+        Box::<_, u64>::try_new(Align2).unwrap();
+        Box::<_, u64>::try_new(Align4).unwrap();
+        Box::<_, u64>::try_new(Align8).unwrap();
+    }
+
+    #[test]
     fn test_zst() {
         let b = Box::<(), SingleInline<[usize; 0]>>::new(());
 
