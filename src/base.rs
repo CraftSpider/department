@@ -5,7 +5,7 @@
 //! what they support.
 
 use core::marker::Unsize;
-use core::ptr::{NonNull, Pointee, DynMetadata};
+use core::ptr::{DynMetadata, NonNull, Pointee};
 use core::{fmt, ptr};
 
 use crate::error;
@@ -34,7 +34,10 @@ macro_rules! create_drop {
         }
 
         /// Attempt to allocate a range into this storage, initializing it with the provided `T`
-        fn $create_range<U, T: Unsize<[U]>>(&mut self, value: T) -> error::Result<Self::Handle<[U]>> {
+        fn $create_range<U, T: Unsize<[U]>>(
+            &mut self,
+            value: T,
+        ) -> error::Result<Self::Handle<[U]>> {
             let meta = ptr::metadata(&value as &[U]);
             let handle = self.$allocate(meta)?;
 
@@ -46,7 +49,10 @@ macro_rules! create_drop {
         }
 
         /// Attempt to allocate a dyn into this storage, initializing it with the provided `T`
-        fn $create_dyn<Dyn: ?Sized + Pointee<Metadata = DynMetadata<Dyn>>, T: Unsize<Dyn>>(&mut self, value: T) -> error::Result<Self::Handle<Dyn>> {
+        fn $create_dyn<Dyn: ?Sized + Pointee<Metadata = DynMetadata<Dyn>>, T: Unsize<Dyn>>(
+            &mut self,
+            value: T,
+        ) -> error::Result<Self::Handle<Dyn>> {
             let meta = ptr::metadata(&value as &Dyn);
             let handle = self.$allocate(meta)?;
 
@@ -72,7 +78,7 @@ macro_rules! create_drop {
 
             self.$deallocate(handle);
         }
-    }
+    };
 }
 
 /// A collection of types safe to be used with inline or static storages.
@@ -404,8 +410,7 @@ mod tests {
     fn create_single() {
         let mut storage = Store::default();
 
-        let handle = storage.create_single(1.0f32)
-            .unwrap();
+        let handle = storage.create_single(1.0f32).unwrap();
         unsafe { storage.drop_single(handle) };
     }
 
@@ -413,8 +418,7 @@ mod tests {
     fn create_single_range() {
         let mut storage = Store::default();
 
-        let handle = storage.create_single_range::<u8, _>([1, 2, 3, 4])
-            .unwrap();
+        let handle = storage.create_single_range::<u8, _>([1, 2, 3, 4]).unwrap();
         unsafe { storage.drop_single(handle) };
     }
 
@@ -422,7 +426,8 @@ mod tests {
     fn create_single_dyn() {
         let mut storage = Store::default();
 
-        let handle = storage.create_single_dyn::<dyn fmt::Debug, _>("Hello!")
+        let handle = storage
+            .create_single_dyn::<dyn fmt::Debug, _>("Hello!")
             .unwrap();
         unsafe { storage.drop_single(handle) };
     }
