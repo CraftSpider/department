@@ -13,11 +13,11 @@ use crate::error::{Result, StorageError};
 use crate::utils;
 
 fn blocks<S>(size: usize) -> usize {
-    (size + 3) / mem::size_of::<S>()
+    size / mem::size_of::<S>()
 }
 
 fn blocks_for<S, T>(capacity: usize) -> usize {
-    (mem::size_of::<T>() * capacity + 3) / mem::size_of::<S>()
+    (mem::size_of::<T>() * capacity) / mem::size_of::<S>()
 }
 
 // TODO: Safety comments for this. There may be race conditions with the UnsafeCell, should
@@ -26,6 +26,7 @@ fn blocks_for<S, T>(capacity: usize) -> usize {
 /// A storage based on a static variable, supporting heap-like behavior but compiled into
 /// the binary. Useful for environments with no allocator support but sufficient space for a
 /// slightly larger program.
+#[derive(Debug)]
 pub struct StaticHeap<S, const N: usize> {
     used: spin::Mutex<[bool; N]>,
     storage: UnsafeCell<[MaybeUninit<S>; N]>,
@@ -81,7 +82,7 @@ where
         if blocks == 0 {
             return Ok(0..0);
         }
-        if blocks >= N {
+        if blocks > N {
             return Err(StorageError::InsufficientSpace(
                 size,
                 Some(mem::size_of::<S>() * N),
@@ -378,6 +379,59 @@ mod tests {
         assert_eq!(&*v2, &[3, 4]);
         assert_eq!(&*v3, &[5, 6]);
         assert_eq!(&*v4, &[7, 8]);
+    }
+
+    #[test]
+    fn test_size() {
+        static HEAP: StaticHeap<u8, 4> = StaticHeap::new();
+
+        type Box<T> = crate::boxed::Box<T, &'static StaticHeap<u8, 4>>;
+
+        Box::<[u8; 4]>::try_new_in([1, 2, 3, 4], &HEAP).unwrap();
+        Box::<[u8; 8]>::try_new_in([1, 2, 3, 4, 5, 6, 7, 8], &HEAP).unwrap_err();
+    }
+
+    #[test]
+    fn test_align() {
+        static FOO1: StaticHeap<u8, 4> = StaticHeap::new();
+        static FOO2: StaticHeap<u16, 4> = StaticHeap::new();
+        static FOO4: StaticHeap<u32, 4> = StaticHeap::new();
+        static FOO8: StaticHeap<u64, 4> = StaticHeap::new();
+
+        type Box<T, S> = crate::boxed::Box<T, &'static StaticHeap<S, 4>>;
+
+        #[derive(Debug)]
+        #[repr(align(1))]
+        struct Align1;
+        #[derive(Debug)]
+        #[repr(align(2))]
+        struct Align2;
+        #[derive(Debug)]
+        #[repr(align(4))]
+        struct Align4;
+        #[derive(Debug)]
+        #[repr(align(8))]
+        struct Align8;
+
+        Box::<_, u8>::try_new_in(Align1, &FOO1).unwrap();
+        Box::<_, u8>::try_new_in(Align2, &FOO1).unwrap_err();
+        Box::<_, u8>::try_new_in(Align4, &FOO1).unwrap_err();
+        Box::<_, u8>::try_new_in(Align8, &FOO1).unwrap_err();
+
+        Box::<_, u16>::try_new_in(Align1, &FOO2).unwrap();
+        Box::<_, u16>::try_new_in(Align2, &FOO2).unwrap();
+        Box::<_, u16>::try_new_in(Align4, &FOO2).unwrap_err();
+        Box::<_, u16>::try_new_in(Align8, &FOO2).unwrap_err();
+
+        Box::<_, u32>::try_new_in(Align1, &FOO4).unwrap();
+        Box::<_, u32>::try_new_in(Align2, &FOO4).unwrap();
+        Box::<_, u32>::try_new_in(Align4, &FOO4).unwrap();
+        Box::<_, u32>::try_new_in(Align8, &FOO4).unwrap_err();
+
+        Box::<_, u64>::try_new_in(Align1, &FOO8).unwrap();
+        Box::<_, u64>::try_new_in(Align2, &FOO8).unwrap();
+        Box::<_, u64>::try_new_in(Align4, &FOO8).unwrap();
+        Box::<_, u64>::try_new_in(Align8, &FOO8).unwrap();
     }
 
     #[test]
