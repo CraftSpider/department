@@ -229,64 +229,6 @@ pub unsafe trait Storage {
         create_single, create_single_range, create_single_dyn, drop_single;
         allocate_single, deallocate_single
     );
-
-    /*/// Attempt to allocate an item into this storage, and initialize it with the provided `T`.
-    fn create_single<T: Pointee>(
-        &mut self,
-        value: T,
-    ) -> core::result::Result<Self::Handle<T>, (StorageError, T)> {
-        // Meta is always `()` for sized types
-        let handle = match self.allocate_single(()) {
-            Ok(handle) => handle,
-            Err(e) => return Err((e, value)),
-        };
-
-        // SAFETY: `handle` is valid, as allocate just succeeded.
-        let pointer = unsafe { self.get(handle) };
-
-        // SAFETY: `pointer` points to a suitable memory area for `T` by impl guarantees.
-        unsafe { ptr::write(pointer.as_ptr(), value) };
-
-        Ok(handle)
-    }
-
-    fn create_single_range<T, U: Unsize<[T]>>(&mut self, value: U) -> error::Result<[T]> {
-        let meta = ptr::metadata(&value as &[T]);
-        let handle = self.allocate_single(meta)?;
-
-        let pointer: NonNull<[T]> = unsafe { self.get(handle) };
-
-        unsafe { ptr::write(pointer.as_ptr().cast(), value) };
-
-        Ok(handle)
-    }
-
-    fn create_single_dyn<Dyn: ?Sized + Pointee<Metadata = DynMetadata<Dyn>>, T: Unsize<Dyn>>(&mut self, value: T) -> error::Result<Self::Handle<Dyn>> {
-        let meta = ptr::metadata(&value as &Dyn);
-        let handle = self.allocate_single(meta)?;
-
-        let pointer: NonNull<Dyn> = unsafe { self.get(handle) };
-
-        unsafe { ptr::write(pointer.as_ptr().cast(), value) };
-
-        Ok(handle)
-    }
-
-    /// Deallocate an item from this storage, dropping the existing item.
-    ///
-    /// # Safety
-    ///
-    /// All the caveats of [`Storage::deallocate_single`], as well as
-    /// the requirement that the handle must contain a valid instance of `T`.
-    unsafe fn drop_single<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>) {
-        // SAFETY: `handle` is valid by safety requirements.
-        let element = self.get(handle);
-
-        // SAFETY: `element` is valid by safety requirements.
-        ptr::drop_in_place(element.as_ptr());
-
-        self.deallocate_single(handle);
-    }*/
 }
 
 /// An extension to [`Storage`] for storages that can store multiple distinct items at once
@@ -314,39 +256,6 @@ pub unsafe trait MultiItemStorage: Storage {
         create, create_range, create_dyn, drop;
         allocate, deallocate
     );
-
-    /*/// Attempt to allocate an item into this storage, and initialize it with the provided `T`.
-    fn create<T>(&mut self, value: T) -> core::result::Result<Self::Handle<T>, (StorageError, T)> {
-        // Meta is always `()` for sized types
-        let handle = match self.allocate(()) {
-            Ok(handle) => handle,
-            Err(e) => return Err((e, value)),
-        };
-
-        // SAFETY: `handle` is valid, as allocate just succeeded.
-        let pointer = unsafe { self.get(handle) };
-
-        // SAFETY: `pointer` points to a suitable memory area for `T` by impl guarantees.
-        unsafe { ptr::write(pointer.as_ptr(), value) };
-
-        Ok(handle)
-    }
-
-    /// Deallocate an item from this storage, dropping the existing item.
-    ///
-    /// # Safety
-    ///
-    /// All the caveats of [`Storage::deallocate_single`], as well as
-    /// the requirement that the handle must contain a valid instance of `T`.
-    unsafe fn drop<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>) {
-        // SAFETY: `handle` is valid by safety requirements.
-        let element = self.get(handle);
-
-        // SAFETY: `element` is valid by safety requirements.
-        ptr::drop_in_place(element.as_ptr());
-
-        self.deallocate(handle);
-    }*/
 }
 
 /// An extension to [`Storage`] for storages that know the exact maximum size that can be stored
