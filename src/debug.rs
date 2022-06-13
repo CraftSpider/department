@@ -345,7 +345,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "Attempted to access single allocation with old handle"]
+    #[should_panic = "Attempted to access single allocation with incorrect handle"]
     fn test_get_invalid() {
         let mut s = storage();
 

@@ -219,4 +219,28 @@ mod private {
 
 use private::FallbackHandle;
 
-// TODO: Tests
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::inline::SingleInline;
+    use crate::alloc::GlobalAlloc;
+
+    type Store = FallbackStorage<SingleInline<[u16; 4]>, GlobalAlloc>;
+
+    #[test]
+    fn test_fallback() {
+        let mut f = Store::default();
+
+        let h1 = f.create_single::<[u16; 4]>([1, 2, 3, 4])
+            .unwrap();
+        assert!(matches!(h1, FallbackHandle::First(_)));
+        assert_eq!(unsafe { f.get(h1).as_ref() }, &[1, 2, 3, 4]);
+
+        unsafe { f.drop_single(h1) };
+
+        let h2 = f.create_single::<[u32; 4]>([1, 2, 3, 4])
+            .unwrap();
+        assert!(matches!(h2, FallbackHandle::Second(_)));
+        assert_eq!(unsafe { f.get(h2).as_ref() }, &[1, 2, 3 ,4]);
+    }
+}
