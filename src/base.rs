@@ -5,11 +5,75 @@
 //! what they support.
 
 use core::marker::Unsize;
-use core::ptr::{NonNull, Pointee};
+use core::ptr::{NonNull, Pointee, DynMetadata};
 use core::{fmt, ptr};
 
 use crate::error;
 use crate::error::StorageError;
+
+macro_rules! create_drop {
+    ($create:ident, $create_range:ident, $create_dyn:ident, $drop:ident; $allocate:ident, $deallocate:ident) => {
+        /// Attempt to allocate an item into this storage, and initialize it with the provided `T`.
+        fn $create<T: Pointee>(
+            &mut self,
+            value: T,
+        ) -> core::result::Result<Self::Handle<T>, (StorageError, T)> {
+            // Meta is always `()` for sized types
+            let handle = match self.$allocate(()) {
+                Ok(handle) => handle,
+                Err(e) => return Err((e, value)),
+            };
+
+            // SAFETY: `handle` is valid, as allocate just succeeded.
+            let pointer = unsafe { self.get(handle) };
+
+            // SAFETY: `pointer` points to a suitable memory area for `T` by impl guarantees.
+            unsafe { ptr::write(pointer.as_ptr(), value) };
+
+            Ok(handle)
+        }
+
+        /// Attempt to allocate a range into this storage, initializing it with the provided `T`
+        fn $create_range<U, T: Unsize<[U]>>(&mut self, value: T) -> error::Result<Self::Handle<[U]>> {
+            let meta = ptr::metadata(&value as &[U]);
+            let handle = self.$allocate(meta)?;
+
+            let pointer: NonNull<[U]> = unsafe { self.get(handle) };
+
+            unsafe { ptr::write(pointer.as_ptr().cast(), value) };
+
+            Ok(handle)
+        }
+
+        /// Attempt to allocate a dyn into this storage, initializing it with the provided `T`
+        fn $create_dyn<Dyn: ?Sized + Pointee<Metadata = DynMetadata<Dyn>>, T: Unsize<Dyn>>(&mut self, value: T) -> error::Result<Self::Handle<Dyn>> {
+            let meta = ptr::metadata(&value as &Dyn);
+            let handle = self.$allocate(meta)?;
+
+            let pointer: NonNull<Dyn> = unsafe { self.get(handle) };
+
+            unsafe { ptr::write(pointer.as_ptr().cast(), value) };
+
+            Ok(handle)
+        }
+
+        /// Deallocate an item from this storage, dropping the existing item.
+        ///
+        /// # Safety
+        ///
+        /// All the caveats of [`Storage::deallocate_single`], as well as
+        /// the requirement that the handle must contain a valid instance of `T`.
+        unsafe fn $drop<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>) {
+            // SAFETY: `handle` is valid by safety requirements.
+            let element = self.get(handle);
+
+            // SAFETY: `element` is valid by safety requirements.
+            ptr::drop_in_place(element.as_ptr());
+
+            self.$deallocate(handle);
+        }
+    }
+}
 
 /// A collection of types safe to be used with inline or static storages.
 ///
@@ -148,7 +212,12 @@ pub unsafe trait Storage {
         Err(StorageError::Unimplemented)
     }
 
-    /// Attempt to allocate an item into this storage, and initialize it with the provided `T`.
+    create_drop!(
+        create_single, create_single_range, create_single_dyn, drop_single;
+        allocate_single, deallocate_single
+    );
+
+    /*/// Attempt to allocate an item into this storage, and initialize it with the provided `T`.
     fn create_single<T: Pointee>(
         &mut self,
         value: T,
@@ -168,6 +237,28 @@ pub unsafe trait Storage {
         Ok(handle)
     }
 
+    fn create_single_range<T, U: Unsize<[T]>>(&mut self, value: U) -> error::Result<[T]> {
+        let meta = ptr::metadata(&value as &[T]);
+        let handle = self.allocate_single(meta)?;
+
+        let pointer: NonNull<[T]> = unsafe { self.get(handle) };
+
+        unsafe { ptr::write(pointer.as_ptr().cast(), value) };
+
+        Ok(handle)
+    }
+
+    fn create_single_dyn<Dyn: ?Sized + Pointee<Metadata = DynMetadata<Dyn>>, T: Unsize<Dyn>>(&mut self, value: T) -> error::Result<Self::Handle<Dyn>> {
+        let meta = ptr::metadata(&value as &Dyn);
+        let handle = self.allocate_single(meta)?;
+
+        let pointer: NonNull<Dyn> = unsafe { self.get(handle) };
+
+        unsafe { ptr::write(pointer.as_ptr().cast(), value) };
+
+        Ok(handle)
+    }
+
     /// Deallocate an item from this storage, dropping the existing item.
     ///
     /// # Safety
@@ -182,7 +273,7 @@ pub unsafe trait Storage {
         ptr::drop_in_place(element.as_ptr());
 
         self.deallocate_single(handle);
-    }
+    }*/
 }
 
 /// An extension to [`Storage`] for storages that can store multiple distinct items at once
@@ -206,7 +297,12 @@ pub unsafe trait MultiItemStorage: Storage {
     /// The provided handle must be valid. See [`Self::Handle`](`Storage::Handle`).
     unsafe fn deallocate<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>);
 
-    /// Attempt to allocate an item into this storage, and initialize it with the provided `T`.
+    create_drop!(
+        create, create_range, create_dyn, drop;
+        allocate, deallocate
+    );
+
+    /*/// Attempt to allocate an item into this storage, and initialize it with the provided `T`.
     fn create<T>(&mut self, value: T) -> core::result::Result<Self::Handle<T>, (StorageError, T)> {
         // Meta is always `()` for sized types
         let handle = match self.allocate(()) {
@@ -237,7 +333,7 @@ pub unsafe trait MultiItemStorage: Storage {
         ptr::drop_in_place(element.as_ptr());
 
         self.deallocate(handle);
-    }
+    }*/
 }
 
 /// An extension to [`Storage`] for storages that know the exact maximum size that can be stored
@@ -295,4 +391,39 @@ pub unsafe trait FromLeakedStorage: LeaksafeStorage {
     /// Other situations may be valid or not depending on the type, and one should check the
     /// implementor's documentation for any further details.
     unsafe fn unleak_ptr<T: ?Sized>(&self, leaked: *mut T) -> Self::Handle<T>;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::inline::SingleInline;
+
+    type Store = SingleInline<[usize; 4]>;
+
+    #[test]
+    fn create_single() {
+        let mut storage = Store::default();
+
+        let handle = storage.create_single(1.0f32)
+            .unwrap();
+        unsafe { storage.drop_single(handle) };
+    }
+
+    #[test]
+    fn create_single_range() {
+        let mut storage = Store::default();
+
+        let handle = storage.create_single_range::<u8, _>([1, 2, 3, 4])
+            .unwrap();
+        unsafe { storage.drop_single(handle) };
+    }
+
+    #[test]
+    fn create_single_dyn() {
+        let mut storage = Store::default();
+
+        let handle = storage.create_single_dyn::<dyn fmt::Debug, _>("Hello!")
+            .unwrap();
+        unsafe { storage.drop_single(handle) };
+    }
 }

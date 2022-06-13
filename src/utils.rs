@@ -5,6 +5,8 @@ use core::{mem, ptr};
 use crate::error::Result;
 use crate::error::StorageError;
 
+/// Get the layout for a possibly unsized type, provided the type's metadata. This method is
+/// the sketchiest part of department - it relies on meta being valid
 pub(crate) fn layout_of<T: ?Sized + Pointee>(meta: T::Metadata) -> Layout {
     let pointer = ptr::from_raw_parts(ptr::null(), meta);
     // SAFETY: The provided metadata is passed by value, and thus must be a valid instance of the
