@@ -5,6 +5,7 @@
 
 use core::marker::Unsize;
 use core::ptr::{NonNull, Pointee};
+use rs_alloc::vec::Vec;
 use spin::Mutex;
 
 use crate::base::{

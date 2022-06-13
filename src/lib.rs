@@ -32,7 +32,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "alloc", feature(allocator_api))]
 
-#[cfg(feature = "alloc")]
+#[cfg(any(feature = "alloc", feature = "debug"))]
 extern crate alloc as rs_alloc;
 extern crate core;
 
