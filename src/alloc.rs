@@ -91,7 +91,10 @@ unsafe impl<A: Allocator> Storage for Alloc<A> {
             .0
             .grow(handle.cast(), old_layout, new_layout)
             // This may actually be unimplemented or other, but we're making an educated guess
-            .map_err(|_| StorageError::InsufficientSpace(new_layout.size(), None))?;
+            .map_err(|_| StorageError::InsufficientSpace {
+                expected: new_layout.size(),
+                available: None,
+            })?;
 
         Ok(NonNull::from_raw_parts(new_ptr.cast(), capacity))
     }
@@ -126,7 +129,10 @@ unsafe impl<A: Allocator> MultiItemStorage for Alloc<A> {
         let allocated: NonNull<()> = self
             .0
             .allocate(layout)
-            .map_err(|_| StorageError::InsufficientSpace(layout.size(), None))?
+            .map_err(|_| StorageError::InsufficientSpace {
+                expected: layout.size(),
+                available: None,
+            })?
             .cast();
 
         Ok(NonNull::from_raw_parts(allocated, meta))

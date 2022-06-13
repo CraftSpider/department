@@ -71,10 +71,10 @@ where
         if self.will_fit::<[T]>(capacity) {
             Ok(SingleInlineHandle(capacity))
         } else {
-            Err(StorageError::InsufficientSpace(
-                new_layout.size(),
-                Some(self.max_range::<T>()),
-            ))
+            Err(StorageError::InsufficientSpace {
+                expected: new_layout.size(),
+                available: Some(self.max_range::<T>()),
+            })
         }
     }
 

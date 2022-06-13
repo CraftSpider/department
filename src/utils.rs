@@ -23,14 +23,14 @@ pub(crate) fn validate_layout_for<S>(layout: Layout) -> Result<()> {
     if validated_size && validated_layout {
         Ok(())
     } else if !validated_size {
-        Err(StorageError::InsufficientSpace(
-            layout.size(),
-            Some(mem::size_of::<S>()),
-        ))
+        Err(StorageError::InsufficientSpace {
+            expected: layout.size(),
+            available: Some(mem::size_of::<S>()),
+        })
     } else {
-        Err(StorageError::InvalidAlign(
-            layout.align(),
-            mem::align_of::<S>(),
-        ))
+        Err(StorageError::InvalidAlign {
+            expected: layout.align(),
+            available: mem::align_of::<S>(),
+        })
     }
 }

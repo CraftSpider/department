@@ -83,10 +83,10 @@ where
             return Ok(0..0);
         }
         if blocks > N {
-            return Err(StorageError::InsufficientSpace(
-                size,
-                Some(mem::size_of::<S>() * N),
-            ));
+            return Err(StorageError::InsufficientSpace {
+                expected: size,
+                available: Some(mem::size_of::<S>() * N),
+            });
         }
 
         lock.iter()
@@ -220,7 +220,10 @@ where
         } else if let Some(new_start) = self.grow_move(handle, new_layout) {
             Ok(HeapHandle(new_start, capacity))
         } else {
-            Err(StorageError::InsufficientSpace(new_layout.size(), None))
+            Err(StorageError::InsufficientSpace {
+                expected: new_layout.size(),
+                available: None,
+            })
         }
     }
 
