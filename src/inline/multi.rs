@@ -36,7 +36,11 @@ where
         NonNull::from_raw_parts(ptr, handle.1)
     }
 
-    fn cast<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(
+    fn cast<T: ?Sized + Pointee, U>(&self, handle: Self::Handle<T>) -> Self::Handle<U> {
+        MultiInlineHandle(handle.0, ())
+    }
+
+    fn cast_unsized<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(
         &self,
         handle: Self::Handle<T>,
     ) -> Self::Handle<U> {

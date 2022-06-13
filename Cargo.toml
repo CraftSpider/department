@@ -20,11 +20,12 @@ std = []
 coerce-unsized = []
 
 # Different storage implementations, which may have their own requirements
-all_storages = ["inline", "static", "alloc", "fallback"]
+all_storages = ["inline", "static", "alloc", "fallback", "debug"]
 inline = []
 static = []
 alloc = []
 fallback = []
+debug = []
 
 # Different collection implementations
 all_collections = ["box", "vec", "string"]

@@ -29,7 +29,11 @@ where
         NonNull::from_raw_parts(ptr, handle.0)
     }
 
-    fn cast<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(
+    fn cast<T: ?Sized + Pointee, U>(&self, _: Self::Handle<T>) -> Self::Handle<U> {
+        SingleStaticHandle(())
+    }
+
+    fn cast_unsized<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(
         &self,
         handle: Self::Handle<T>,
     ) -> Self::Handle<U> {

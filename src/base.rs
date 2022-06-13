@@ -152,14 +152,21 @@ pub unsafe trait Storage {
     /// Specific implementations *may* loosen these requirements.
     unsafe fn get<T: ?Sized>(&self, handle: Self::Handle<T>) -> NonNull<T>;
 
+    // TODO: The three below should really be implemented on the handles, however,
+    //       there's currently no clean to express the correct bounds to allow this to work
+    //       in generic contexts - `Handle::This<U>` can't be related to `Storage::Handle<U>`
+
+    /// Convert this handle into any sized type. This is equivalent to [`NonNull::cast`]
+    fn cast<T: ?Sized + Pointee, U>(&self, handle: Self::Handle<T>) -> Self::Handle<U>;
+
     /// Convert this handle into a different type with the same metadata. This is roughly equivalent
-    /// to [`NonNull::cast`].
-    fn cast<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(
+    /// to [`NonNull::from_raw_parts`] with a different type but same metadata.
+    fn cast_unsized<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(
         &self,
         handle: Self::Handle<T>,
     ) -> Self::Handle<U>;
 
-    /// Convert unsizing on a handle. This function is a temporary solution until Rust
+    /// Convert unsizing on a handle. This function is a (hopefully) temporary solution until Rust
     /// supports better custom unsizing.
     ///
     /// # Safety

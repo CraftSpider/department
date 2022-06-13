@@ -51,7 +51,11 @@ unsafe impl<A: Allocator> Storage for Alloc<A> {
         handle
     }
 
-    fn cast<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(
+    fn cast<T: ?Sized + Pointee, U>(&self, handle: Self::Handle<T>) -> Self::Handle<U> {
+        handle.cast::<U>()
+    }
+
+    fn cast_unsized<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(
         &self,
         handle: Self::Handle<T>,
     ) -> Self::Handle<U> {

@@ -34,7 +34,11 @@ where
         NonNull::from_raw_parts(ptr, handle.0)
     }
 
-    fn cast<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(
+    fn cast<T: ?Sized + Pointee, U>(&self, _: Self::Handle<T>) -> Self::Handle<U> {
+        SingleInlineHandle(())
+    }
+
+    fn cast_unsized<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(
         &self,
         handle: Self::Handle<T>,
     ) -> Self::Handle<U> {
@@ -122,7 +126,7 @@ impl<S> Default for SingleInline<S> {
     }
 }
 
-#[derive(Debug)]
+// FIXME: Replace with JustMetadata when that merges
 pub struct SingleInlineHandle<T: ?Sized + Pointee>(T::Metadata);
 
 impl<T: ?Sized + Pointee> Clone for SingleInlineHandle<T> {
