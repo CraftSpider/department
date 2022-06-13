@@ -215,8 +215,8 @@ mod private {
 
     /// Handle for a debug storage
     pub struct DebugHandle<S: Storage, T: ?Sized> {
-        id: usize,
-        handle: S::Handle<T>,
+        pub(super) id: usize,
+        pub(super) handle: S::Handle<T>,
     }
 
     impl<S, T> DebugHandle<S, T>
@@ -224,7 +224,7 @@ mod private {
         S: Storage,
         T: ?Sized,
     {
-        fn map<U: ?Sized, F: FnOnce(S::Handle<T>) -> S::Handle<U>>(
+        pub(super) fn map<U: ?Sized, F: FnOnce(S::Handle<T>) -> S::Handle<U>>(
             self,
             f: F,
         ) -> DebugHandle<S, U> {
@@ -234,7 +234,7 @@ mod private {
             }
         }
 
-        fn try_map<U: ?Sized, E, F: FnOnce(S::Handle<T>) -> Result<S::Handle<U>, E>>(
+        pub(super) fn try_map<U: ?Sized, E, F: FnOnce(S::Handle<T>) -> Result<S::Handle<U>, E>>(
             self,
             f: F,
         ) -> Result<DebugHandle<S, U>, E> {
@@ -263,6 +263,8 @@ mod private {
 
     impl<S: Storage, T: ?Sized> Copy for DebugHandle<S, T> {}
 }
+
+use private::DebugHandle;
 
 #[cfg(test)]
 mod tests {
@@ -355,5 +357,3 @@ mod tests {
         unsafe { s.get(h1) };
     }
 }
-
-use private::DebugHandle;
