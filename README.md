@@ -19,6 +19,7 @@ want specific storages and collections
 - `std`: Whether to include std error support and other std-only features
 - `all_storages`: Enable all storage features
   - `inline`: Inline on-the-stack storages
+  - `heap`: Virtual heap-like storage, can be used on the stack or in a static
   - `static`: Storages backed by static memory, stored in the binary
   - `alloc`: Storages backed by a standard allocator. Requires the `alloc` crate to be available
   - `fallback`: Storage which attempts to store something in one, then falls back to a second storage
