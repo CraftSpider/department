@@ -1,3 +1,13 @@
+//! Storage implementation which stores items in a virtual heap, either on the stack or in a static
+//!
+//! # Advantages
+//! - No need for allocation
+//! - Can provide 'heaps' which support any type of storage item (elements, ranges, etc)
+//! - Implements many more extensions than inline or static storages
+//!
+//! # Disadvantages
+//! - Increase binary or stack size
+
 use core::alloc::Layout;
 use core::cell::UnsafeCell;
 use core::marker::Unsize;
@@ -305,27 +315,33 @@ unsafe impl<S: Send + StorageSafe, const N: usize> Send for VirtHeap<S, N> {}
 // SAFETY: This type only accesses the inner cell when atomically claimed
 unsafe impl<S: Sync + StorageSafe, const N: usize> Sync for VirtHeap<S, N> {}
 
-pub struct HeapHandle<T: ?Sized + Pointee>(usize, T::Metadata);
+mod private {
+    use super::*;
 
-impl<T: ?Sized> Clone for HeapHandle<T> {
-    fn clone(&self) -> Self {
-        *self
+    pub struct HeapHandle<T: ?Sized + Pointee>(usize, T::Metadata);
+
+    impl<T: ?Sized> Clone for HeapHandle<T> {
+        fn clone(&self) -> Self {
+            *self
+        }
+    }
+
+    impl<T: ?Sized> Copy for HeapHandle<T> {}
+
+    impl<T: ?Sized> fmt::Debug for HeapHandle<T>
+        where
+            <T as Pointee>::Metadata: fmt::Debug,
+    {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.debug_tuple("HeapHandle")
+                .field(&self.0)
+                .field(&self.1)
+                .finish()
+        }
     }
 }
 
-impl<T: ?Sized> Copy for HeapHandle<T> {}
-
-impl<T: ?Sized> fmt::Debug for HeapHandle<T>
-    where
-        <T as Pointee>::Metadata: fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("HeapHandle")
-            .field(&self.0)
-            .field(&self.1)
-            .finish()
-    }
-}
+use private::HeapHandle;
 
 #[cfg(test)]
 mod tests {

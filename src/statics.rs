@@ -2,10 +2,11 @@
 //!
 //! # Advantages
 //! - No need for allocation
-//! - Can provide 'heaps' which support any type of storage item (elements, ranges, etc)
+//! - Doesn't blow up the stack
 //!
 //! # Disadvantages
-//! - Increase binary size
+//! - Increases binary size
+//! - Not much less rigorous than inline storage
 
 mod cell;
 mod traits;
