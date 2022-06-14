@@ -1,3 +1,5 @@
+//! A storage-based implementation of [`std::rc`]
+
 use crate::base::{ClonesafeStorage, Storage};
 use core::borrow::Borrow;
 use std::cell::Cell;
@@ -52,6 +54,10 @@ impl<T> RcBox<T> {
     }
 }
 
+/// Storage-based implementation of [`Rc`](std::rc::Rc).
+///
+/// Requires that the storage be a [`ClonesafeStorage`], which excludes inline and some other forms
+/// of storage.
 pub struct Rc<T: ?Sized, S: Storage + ClonesafeStorage> {
     handle: S::Handle<RcBox<T>>,
     storage: S,
@@ -72,6 +78,7 @@ impl<T: ?Sized, S: Storage + ClonesafeStorage> Rc<T, S> {
         }
     }
 
+    /// Get a [`Weak`] from this [`Rc`]
     pub fn downgrade(this: &Self) -> Weak<T, S> {
         this.inner().inc_weak();
         Weak {
@@ -82,6 +89,12 @@ impl<T: ?Sized, S: Storage + ClonesafeStorage> Rc<T, S> {
 }
 
 impl<T, S: Storage + ClonesafeStorage> Rc<T, S> {
+    /// Create a new [`Rc`] from the provided value in some existing storage
+    ///
+    /// # Panics
+    ///
+    /// If the storage fails to allocate enough space for the provided type and associated
+    /// information
     pub fn new_in(value: T, mut storage: S) -> Rc<T, S> {
         let handle = storage
             .create_single(RcBox::new(value))
@@ -91,6 +104,7 @@ impl<T, S: Storage + ClonesafeStorage> Rc<T, S> {
 }
 
 impl<T, S: Storage + ClonesafeStorage + Default> Rc<T, S> {
+    /// Create a new [`Rc`] from the provided value
     pub fn new(value: T) -> Rc<T, S> {
         Self::new_in(value, S::default())
     }
@@ -140,7 +154,7 @@ impl<T: ?Sized, S: Storage + ClonesafeStorage> Borrow<T> for Rc<T, S> {
     }
 }
 
-pub struct WeakInner<'a> {
+struct WeakInner<'a> {
     strong: &'a Cell<usize>,
     weak: &'a Cell<usize>,
 }
@@ -165,6 +179,7 @@ impl WeakInner<'_> {
     }
 }
 
+/// Storage-based implementation of [`std::rc::Weak`]
 pub struct Weak<T: ?Sized, S: Storage + ClonesafeStorage> {
     handle: S::Handle<RcBox<T>>,
     storage: S,
@@ -181,6 +196,8 @@ impl<T: ?Sized, S: Storage + ClonesafeStorage> Weak<T, S> {
         })
     }
 
+    /// Attempt to convert this [`Weak`] back into an [`Rc`]. Returns `None` if all strong
+    /// references to the data have already been dropped.
     pub fn upgrade(&self) -> Option<Rc<T, S>> {
         let inner = self.inner()?;
         if inner.strong() == 0 {
