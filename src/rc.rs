@@ -2,9 +2,9 @@
 
 use crate::base::{ClonesafeStorage, Storage};
 use core::borrow::Borrow;
-use std::cell::Cell;
-use std::marker::PhantomData;
-use std::ops::Deref;
+use core::cell::Cell;
+use core::marker::PhantomData;
+use core::ops::Deref;
 
 #[repr(C)]
 #[derive(Debug)]
