@@ -26,6 +26,7 @@ want specific storages and collections
              UB or incorrect usages.
 - `all_collections`: Enable all collection types
   - `box`: Include the `Box` type
+  - `rc`: Include the `Rc` and `Weak` types
   - `vec`: Include the `Vec` type
   - `string`: Include the `String` type, requires `vec`
 
@@ -39,3 +40,4 @@ edge cases (ZST, alignment requirements, etc).
 
 `btree`, an implementation of a `BTreeMap` and `BTreeSet`
 `hash`, an implementation of a `HashMap` and `HashSet`
+`arc`, implementation for atomically ref-counted items

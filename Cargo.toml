@@ -28,8 +28,9 @@ fallback = []
 debug = []
 
 # Different collection implementations
-all_collections = ["box", "vec", "string"]
+all_collections = ["box", "rc", "vec", "string"]
 box = []
+rc = []
 vec = []
 string = ["vec"]
 

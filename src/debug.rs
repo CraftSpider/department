@@ -8,9 +8,7 @@ use core::ptr::{NonNull, Pointee};
 use rs_alloc::vec::Vec;
 use spin::Mutex;
 
-use crate::base::{
-    ExactSizeStorage, FromLeakedStorage, LeaksafeStorage, MultiItemStorage, Storage,
-};
+use crate::base::{ExactSizeStorage, LeaksafeStorage, MultiItemStorage, Storage};
 
 struct DebugState<S: Storage> {
     single_allocated: Option<DebugHandle<S, ()>>,
@@ -194,11 +192,13 @@ where
     }
 }
 
+// unsafe impl<S> ClonesafeStorage for Debug<S> where S: ClonesafeStorage {}
+
 unsafe impl<S> LeaksafeStorage for Debug<S> where S: LeaksafeStorage {}
 
-unsafe impl<S> FromLeakedStorage for Debug<S>
+/*unsafe impl<S> FromLeakedStorage for Debug<S>
 where
-    S: FromLeakedStorage,
+    S: FromLeakedStorage + ClonesafeStorage,
 {
     unsafe fn unleak_ptr<T: ?Sized>(&self, leaked: *mut T) -> Self::Handle<T> {
         let mut lock = self.0.lock();
@@ -209,7 +209,7 @@ where
         self.0.lock().allocated_handles.push(self.cast(out));
         out
     }
-}
+}*/
 
 mod private {
     use super::*;

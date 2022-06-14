@@ -60,5 +60,7 @@ pub mod statics;
 pub mod boxed;
 #[cfg(any(feature = "vec", feature = "hash"))]
 pub mod collections;
+#[cfg(feature = "rc")]
+pub mod rc;
 #[cfg(feature = "string")]
 pub mod string;

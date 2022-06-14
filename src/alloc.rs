@@ -13,7 +13,9 @@ use core::marker::Unsize;
 use core::ptr::{NonNull, Pointee};
 use rs_alloc::alloc::Global;
 
-use crate::base::{FromLeakedStorage, LeaksafeStorage, MultiItemStorage, Storage};
+use crate::base::{
+    ClonesafeStorage, FromLeakedStorage, LeaksafeStorage, MultiItemStorage, Storage,
+};
 use crate::error::StorageError;
 use crate::{error, utils};
 
@@ -148,10 +150,13 @@ unsafe impl<A: Allocator> MultiItemStorage for Alloc<A> {
     }
 }
 
+// SAFETY: Rust requires that implementors of `Allocator` are clone-safe currently
+unsafe impl<A: Allocator + Clone> ClonesafeStorage for Alloc<A> {}
+
 // SAFETY: Rust requires that implementors of `Allocator` are leak-safe currently
 unsafe impl<A: Allocator> LeaksafeStorage for Alloc<A> {}
 
-unsafe impl<A: Allocator> FromLeakedStorage for Alloc<A> {
+unsafe impl<A: Allocator + Clone> FromLeakedStorage for Alloc<A> {
     unsafe fn unleak_ptr<T: ?Sized>(&self, leaked: *mut T) -> Self::Handle<T> {
         NonNull::new(leaked).unwrap()
     }

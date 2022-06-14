@@ -7,7 +7,8 @@ use core::ptr::{NonNull, Pointee};
 use core::{fmt, mem, ptr};
 
 use crate::base::{
-    ExactSizeStorage, FromLeakedStorage, LeaksafeStorage, MultiItemStorage, Storage, StorageSafe,
+    ClonesafeStorage, ExactSizeStorage, FromLeakedStorage, LeaksafeStorage, MultiItemStorage,
+    Storage, StorageSafe,
 };
 use crate::error::{Result, StorageError};
 use crate::utils;
@@ -274,6 +275,9 @@ where
         (mem::size_of::<S>() * N) / layout.size()
     }
 }
+
+// SAFETY: All storages with the same heap backing can correctly handle each-other's allocations
+unsafe impl<S, const N: usize> ClonesafeStorage for &StaticHeap<S, N> where S: StorageSafe {}
 
 // SAFETY: Handles returned from a StaticHeap don't move and are valid until deallocated
 unsafe impl<S, const N: usize> LeaksafeStorage for &'static StaticHeap<S, N> where S: StorageSafe {}

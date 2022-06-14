@@ -276,6 +276,16 @@ pub trait ExactSizeStorage: Storage {
     fn max_range<T>(&self) -> usize;
 }
 
+/// An extension to [`Storage`] for storages that may have their handles dereferenced or deallocated
+/// by any clone of the storage that allocated them.
+///
+/// # Safety
+///
+/// Handles from this storage must be safe to [`get`][Storage::get] or
+/// [`deallocate`][Storage::deallocate_single] through any clone of the original storage. This is
+/// used for things such as an Rc, where handles may be deallocated by any clone of the original.
+pub unsafe trait ClonesafeStorage: Storage + Clone {}
+
 /// An extension to [`Storage`] for storages that may have their handles leaked. This allows a
 /// handle to outlive the [`Storage`] that created it, though does not guarantee that such handles
 /// can be dereferenced on their own.
@@ -287,16 +297,17 @@ pub trait ExactSizeStorage: Storage {
 /// This removes the second safety invariant on [`Storage::get`] for this type.
 pub unsafe trait LeaksafeStorage: Storage {}
 
-/// An extension of [`LeaksafeStorage`] for storages that can restore allocations from leaked
-/// pointers. Implementations may define certain safety requirements on when pointers are
-/// valid to unleak, however the following situations are required to work:
+/// An extension for storages that can restore allocations from leaked pointers. This is a
+/// specialization of both [`LeaksafeStorage`] and [`ClonesafeStorage`]. Implementations may define
+/// certain safety requirements on when pointers are valid to unleak, however the following
+/// situations are required to work:
 ///
 /// # Safety
 ///
 /// - If [`Default`] is implemented, any default instance must unleak any other default instance
 /// - If using some separate 'backing', any storage with the same backing as another must be able
 ///   unleak pointers from the other.
-pub unsafe trait FromLeakedStorage: LeaksafeStorage {
+pub unsafe trait FromLeakedStorage: LeaksafeStorage + ClonesafeStorage {
     /// Convert a pointer back into a handle into this storage. One should be very careful with this
     /// method - implementations may define requirements on exactly what counts as a storage with
     /// the 'same backing' as another.
