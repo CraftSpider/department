@@ -290,6 +290,10 @@ pub unsafe trait ClonesafeStorage: Storage + Clone {}
 /// handle to outlive the [`Storage`] that created it, though does not guarantee that such handles
 /// can be dereferenced on their own.
 ///
+/// Note that this does not mean the handles are *never* invalidated, just that they are not
+/// invalidated when the storage is dropped. A storage also needs to fulfill a `'static` bound for
+/// its handles to be valid forever
+///
 /// # Safety
 ///
 /// Handles from this storage, as well as their referenced data, must outlive this storage.

@@ -51,6 +51,8 @@ pub mod debug;
 pub mod fallback;
 #[cfg(feature = "inline")]
 pub mod inline;
+#[cfg(feature = "heap")]
+pub mod heap;
 #[cfg(feature = "static")]
 pub mod statics;
 

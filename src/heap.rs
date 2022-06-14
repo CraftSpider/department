@@ -21,19 +21,19 @@ fn blocks_for<S, T>(capacity: usize) -> usize {
     (mem::size_of::<T>() * capacity) / mem::size_of::<S>()
 }
 
-/// A storage based on a static variable, supporting heap-like behavior but compiled into
-/// the binary. Useful for environments with no allocator support but sufficient space for a
-/// slightly larger program.
+/// A storage based on a variable (static or on the stack), supporting heap-like behavior but
+/// compiled into the binary. Useful for environments with no allocator support but sufficient space
+/// for either a larger binary or more stack usage.
 #[derive(Debug)]
-pub struct StaticHeap<S, const N: usize> {
+pub struct VirtHeap<S, const N: usize> {
     used: spin::Mutex<[bool; N]>,
     storage: UnsafeCell<[MaybeUninit<S>; N]>,
 }
 
-impl<S, const N: usize> StaticHeap<S, N> {
-    /// Create a new static heap
-    pub const fn new() -> StaticHeap<S, N> {
-        StaticHeap {
+impl<S, const N: usize> VirtHeap<S, N> {
+    /// Create a new heap
+    pub const fn new() -> VirtHeap<S, N> {
+        VirtHeap {
             used: spin::Mutex::new([false; N]),
             storage: UnsafeCell::new(unsafe {
                 MaybeUninit::<[MaybeUninit<S>; N]>::uninit().assume_init()
@@ -42,9 +42,9 @@ impl<S, const N: usize> StaticHeap<S, N> {
     }
 }
 
-impl<S, const N: usize> StaticHeap<S, N>
-where
-    S: StorageSafe,
+impl<S, const N: usize> VirtHeap<S, N>
+    where
+        S: StorageSafe,
 {
     fn find_lock(&self, size: usize) -> Result<usize> {
         let mut used = self.used.lock();
@@ -161,9 +161,9 @@ where
     }
 }
 
-unsafe impl<S, const N: usize> Storage for &StaticHeap<S, N>
-where
-    S: StorageSafe,
+unsafe impl<S, const N: usize> Storage for &VirtHeap<S, N>
+    where
+        S: StorageSafe,
 {
     type Handle<T: ?Sized> = HeapHandle<T>;
 
@@ -243,9 +243,9 @@ where
     }
 }
 
-unsafe impl<S, const N: usize> MultiItemStorage for &StaticHeap<S, N>
-where
-    S: StorageSafe,
+unsafe impl<S, const N: usize> MultiItemStorage for &VirtHeap<S, N>
+    where
+        S: StorageSafe,
 {
     fn allocate<T: ?Sized + Pointee>(&mut self, meta: T::Metadata) -> Result<Self::Handle<T>> {
         let layout = utils::layout_of::<T>(meta);
@@ -261,9 +261,9 @@ where
     }
 }
 
-impl<S, const N: usize> ExactSizeStorage for &StaticHeap<S, N>
-where
-    S: StorageSafe,
+impl<S, const N: usize> ExactSizeStorage for &VirtHeap<S, N>
+    where
+        S: StorageSafe,
 {
     fn will_fit<T: ?Sized + Pointee>(&self, meta: T::Metadata) -> bool {
         let layout = utils::layout_of::<T>(meta);
@@ -277,12 +277,12 @@ where
 }
 
 // SAFETY: All storages with the same heap backing can correctly handle each-other's allocations
-unsafe impl<S, const N: usize> ClonesafeStorage for &StaticHeap<S, N> where S: StorageSafe {}
+unsafe impl<S, const N: usize> ClonesafeStorage for &VirtHeap<S, N> where S: StorageSafe {}
 
-// SAFETY: Handles returned from a StaticHeap don't move and are valid until deallocated
-unsafe impl<S, const N: usize> LeaksafeStorage for &'static StaticHeap<S, N> where S: StorageSafe {}
+// SAFETY: Handles returned from a VirtHeap don't move and are valid until deallocated
+unsafe impl<S, const N: usize> LeaksafeStorage for &VirtHeap<S, N> where S: StorageSafe {}
 
-unsafe impl<S, const N: usize> FromLeakedStorage for &'static StaticHeap<S, N>
+unsafe impl<S, const N: usize> FromLeakedStorage for &VirtHeap<S, N>
 where
     S: StorageSafe,
 {
@@ -301,9 +301,9 @@ where
 }
 
 // SAFETY: This type only accesses the inner cell when atomically claimed
-unsafe impl<S: Send + StorageSafe, const N: usize> Send for StaticHeap<S, N> {}
+unsafe impl<S: Send + StorageSafe, const N: usize> Send for VirtHeap<S, N> {}
 // SAFETY: This type only accesses the inner cell when atomically claimed
-unsafe impl<S: Sync + StorageSafe, const N: usize> Sync for StaticHeap<S, N> {}
+unsafe impl<S: Sync + StorageSafe, const N: usize> Sync for VirtHeap<S, N> {}
 
 pub struct HeapHandle<T: ?Sized + Pointee>(usize, T::Metadata);
 
@@ -316,8 +316,8 @@ impl<T: ?Sized> Clone for HeapHandle<T> {
 impl<T: ?Sized> Copy for HeapHandle<T> {}
 
 impl<T: ?Sized> fmt::Debug for HeapHandle<T>
-where
-    <T as Pointee>::Metadata: fmt::Debug,
+    where
+        <T as Pointee>::Metadata: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_tuple("HeapHandle")
@@ -336,7 +336,7 @@ mod tests {
 
     #[test]
     fn test_box() {
-        static HEAP: StaticHeap<usize, 4> = StaticHeap::new();
+        static HEAP: VirtHeap<usize, 4> = VirtHeap::new();
         let b = Box::new_in([1, 2], &HEAP);
         let b2 = b.coerce::<[i32]>();
 
@@ -345,7 +345,7 @@ mod tests {
 
     #[test]
     fn test_multi_box() {
-        static HEAP: StaticHeap<usize, 16> = StaticHeap::new();
+        static HEAP: VirtHeap<usize, 16> = VirtHeap::new();
         let b1 = Box::new_in([1, 2], &HEAP);
         let b2 = Box::new_in([3, 4], &HEAP);
         let b3 = Box::new_in([5, 6], &HEAP);
@@ -359,7 +359,7 @@ mod tests {
 
     #[test]
     fn test_vec() {
-        static HEAP: StaticHeap<usize, 16> = StaticHeap::new();
+        static HEAP: VirtHeap<usize, 16> = VirtHeap::new();
 
         let mut v = Vec::new_in(&HEAP);
         v.push(1);
@@ -370,7 +370,7 @@ mod tests {
 
     #[test]
     fn test_multi_vec() {
-        static HEAP: StaticHeap<usize, 16> = StaticHeap::new();
+        static HEAP: VirtHeap<usize, 16> = VirtHeap::new();
 
         let mut v1 = Vec::new_in(&HEAP);
         let mut v2 = Vec::new_in(&HEAP);
@@ -392,9 +392,9 @@ mod tests {
 
     #[test]
     fn test_size() {
-        static HEAP: StaticHeap<u8, 4> = StaticHeap::new();
+        static HEAP: VirtHeap<u8, 4> = VirtHeap::new();
 
-        type Box<T> = crate::boxed::Box<T, &'static StaticHeap<u8, 4>>;
+        type Box<T> = crate::boxed::Box<T, &'static VirtHeap<u8, 4>>;
 
         Box::<[u8; 4]>::try_new_in([1, 2, 3, 4], &HEAP).unwrap();
         Box::<[u8; 8]>::try_new_in([1, 2, 3, 4, 5, 6, 7, 8], &HEAP).unwrap_err();
@@ -402,12 +402,12 @@ mod tests {
 
     #[test]
     fn test_align() {
-        static FOO1: StaticHeap<u8, 4> = StaticHeap::new();
-        static FOO2: StaticHeap<u16, 4> = StaticHeap::new();
-        static FOO4: StaticHeap<u32, 4> = StaticHeap::new();
-        static FOO8: StaticHeap<u64, 4> = StaticHeap::new();
+        static FOO1: VirtHeap<u8, 4> = VirtHeap::new();
+        static FOO2: VirtHeap<u16, 4> = VirtHeap::new();
+        static FOO4: VirtHeap<u32, 4> = VirtHeap::new();
+        static FOO8: VirtHeap<u64, 4> = VirtHeap::new();
 
-        type Box<T, S> = crate::boxed::Box<T, &'static StaticHeap<S, 4>>;
+        type Box<T, S> = crate::boxed::Box<T, &'static VirtHeap<S, 4>>;
 
         #[derive(Debug)]
         #[repr(align(1))]
@@ -445,7 +445,7 @@ mod tests {
 
     #[test]
     fn test_leak() {
-        static HEAP: StaticHeap<usize, 16> = StaticHeap::new();
+        static HEAP: VirtHeap<usize, 16> = VirtHeap::new();
 
         let v1 = Box::new_in(1, &HEAP);
 
@@ -458,5 +458,11 @@ mod tests {
         let v1 = unsafe { Box::from_raw_in(i, &HEAP) };
 
         assert_eq!(*v1, -1);
+    }
+
+    #[test]
+    fn test_non_static() {
+        let heap: VirtHeap<u32, 4> = VirtHeap::new();
+        Box::new_in(1, &heap);
     }
 }

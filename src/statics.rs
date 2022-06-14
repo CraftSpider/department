@@ -13,11 +13,7 @@ mod traits;
 mod multi;
 mod single;
 
-mod static_heap;
-
 pub use cell::StorageCell;
 
 pub use multi::MultiStatic;
 pub use single::SingleStatic;
-
-pub use static_heap::StaticHeap;
