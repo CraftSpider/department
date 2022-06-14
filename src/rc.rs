@@ -225,3 +225,32 @@ impl<T: ?Sized, S: Storage + ClonesafeStorage> Drop for Weak<T, S> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::heap::VirtHeap;
+
+    #[test]
+    fn test_rc() {
+        let heap: VirtHeap<u64, 16> = VirtHeap::new();
+
+        let rc1 = Rc::new_in(1, &heap);
+        let rc2 = Rc::clone(&rc1);
+        let weak1 = Rc::downgrade(&rc2);
+
+        assert_eq!(*rc1, 1);
+        assert_eq!(*rc2, 1);
+
+        let rc3 = weak1.upgrade()
+            .unwrap();
+
+        assert_eq!(*rc3, 1);
+
+        drop(rc1);
+        drop(rc2);
+        drop(rc3);
+
+        assert!(matches!(weak1.upgrade(), None));
+    }
+}
