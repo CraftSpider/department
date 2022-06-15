@@ -8,7 +8,7 @@
 use core::marker::Unsize;
 use core::ptr::{NonNull, Pointee};
 
-use crate::base::{ExactSizeStorage, LeaksafeStorage, MultiItemStorage, Storage};
+use crate::base::{ClonesafeStorage, ExactSizeStorage, LeaksafeStorage, MultiItemStorage, Storage};
 use crate::error;
 
 /// A storage which attempts to store in one storage, then falls back to a second
@@ -179,6 +179,13 @@ where
     fn max_range<T>(&self) -> usize {
         usize::max(self.first.max_range::<T>(), self.second.max_range::<T>())
     }
+}
+
+unsafe impl<S1, S2> ClonesafeStorage for FallbackStorage<S1, S2>
+where
+    S1: ClonesafeStorage,
+    S2: ClonesafeStorage,
+{
 }
 
 unsafe impl<S1, S2> LeaksafeStorage for FallbackStorage<S1, S2>
