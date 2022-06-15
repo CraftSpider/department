@@ -260,7 +260,10 @@ where
         let new_layout = Layout::array::<T>(capacity).map_err(|_| StorageError::exceeds_max())?;
 
         if self.grow_in_place(handle, old_layout, new_layout) {
-            Ok(OffsetMetaHandle::from_offset_meta(handle.offset(), capacity))
+            Ok(OffsetMetaHandle::from_offset_meta(
+                handle.offset(),
+                capacity,
+            ))
         } else if let Some(new_start) = self.grow_move(handle, new_layout) {
             Ok(OffsetMetaHandle::from_offset_meta(new_start, capacity))
         } else {
@@ -281,7 +284,10 @@ where
             &mut self.used.lock(),
             (handle.offset() + capacity)..(handle.offset() + handle.metadata()),
         );
-        Ok(OffsetMetaHandle::from_offset_meta(handle.offset(), capacity))
+        Ok(OffsetMetaHandle::from_offset_meta(
+            handle.offset(),
+            capacity,
+        ))
     }
 }
 
@@ -299,7 +305,10 @@ where
     unsafe fn deallocate<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>) {
         let layout = Layout::for_value(<Self as Storage>::get(self, handle).as_ref());
         let mut used = self.used.lock();
-        self.unlock_range(&mut used, handle.offset()..(handle.offset() + blocks::<S>(layout.size())));
+        self.unlock_range(
+            &mut used,
+            handle.offset()..(handle.offset() + blocks::<S>(layout.size())),
+        );
     }
 }
 

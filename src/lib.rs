@@ -36,10 +36,10 @@ extern crate core;
 
 mod utils;
 
-pub mod handles;
 pub mod backing;
 pub mod base;
 pub mod error;
+pub mod handles;
 
 // Storage implementations
 

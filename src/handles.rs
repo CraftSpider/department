@@ -3,12 +3,12 @@
 //! These attempt to provide relevant 'pointer-like' interfaces, such as casting and coercion,
 //! though not all handles may implement all items.
 
+use core::fmt;
 #[cfg(feature = "unsize")]
 use core::marker::Unsize;
 #[cfg(feature = "unsize")]
 use core::ptr;
 use core::ptr::Pointee;
-use core::fmt;
 
 // FIXME: Replace with JustMetadata when that merges
 
@@ -38,9 +38,9 @@ impl<T: ?Sized + Pointee> MetaHandle<T> {
     /// Cast this handle to any unsized type with the same metadata as it currently holds
     #[inline]
     pub const fn cast_unsized<U>(self) -> MetaHandle<U>
-        where
-            T: Pointee<Metadata = <U as Pointee>::Metadata>,
-            U: ?Sized,
+    where
+        T: Pointee<Metadata = <U as Pointee>::Metadata>,
+        U: ?Sized,
     {
         MetaHandle(self.0)
     }
@@ -77,9 +77,7 @@ where
     T::Metadata: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("MetaHandle")
-            .field(&self.0)
-            .finish()
+        f.debug_tuple("MetaHandle").field(&self.0).finish()
     }
 }
 

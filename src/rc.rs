@@ -4,13 +4,13 @@ use crate::base::{ClonesafeStorage, Storage};
 use core::borrow::Borrow;
 use core::cell::Cell;
 use core::marker::PhantomData;
-use core::ops::Deref;
 #[cfg(feature = "unsize")]
 use core::marker::Unsize;
 #[cfg(feature = "unsize")]
-use core::ops::CoerceUnsized;
-#[cfg(feature = "unsize")]
 use core::mem;
+#[cfg(feature = "unsize")]
+use core::ops::CoerceUnsized;
+use core::ops::Deref;
 
 #[repr(C)]
 #[derive(Debug)]
@@ -65,7 +65,8 @@ impl<T, U> CoerceUnsized<RcBox<U>> for RcBox<T>
 where
     T: ?Sized + CoerceUnsized<U>,
     U: ?Sized,
-{}
+{
+}
 
 /// Storage-based implementation of [`Rc`](std::rc::Rc).
 ///
@@ -193,7 +194,8 @@ where
     U: ?Sized,
     S: Storage + ClonesafeStorage,
     S::Handle<RcBox<T>>: CoerceUnsized<S::Handle<RcBox<U>>>,
-{}
+{
+}
 
 struct WeakInner<'a> {
     strong: &'a Cell<usize>,

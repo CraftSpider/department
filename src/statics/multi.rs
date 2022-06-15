@@ -77,7 +77,10 @@ where
         let new_layout = Layout::array::<T>(capacity).map_err(|_| StorageError::exceeds_max())?;
 
         if self.will_fit::<[T]>(capacity) {
-            Ok(OffsetMetaHandle::from_offset_meta(handle.offset(), capacity))
+            Ok(OffsetMetaHandle::from_offset_meta(
+                handle.offset(),
+                capacity,
+            ))
         } else {
             Err(StorageError::InsufficientSpace {
                 expected: new_layout.size(),
@@ -92,7 +95,10 @@ where
         capacity: usize,
     ) -> Result<Self::Handle<[T]>> {
         debug_assert!(capacity <= handle.metadata());
-        Ok(OffsetMetaHandle::from_offset_meta(handle.offset(), capacity))
+        Ok(OffsetMetaHandle::from_offset_meta(
+            handle.offset(),
+            capacity,
+        ))
     }
 }
 

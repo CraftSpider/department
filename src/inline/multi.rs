@@ -8,8 +8,8 @@ use core::{fmt, mem};
 
 use crate::base::{ExactSizeStorage, MultiItemStorage, Storage, StorageSafe};
 use crate::error::StorageError;
-use crate::{error, utils};
 use crate::handles::OffsetMetaHandle;
+use crate::{error, utils};
 
 /// Inline multi-element storage implementation
 pub struct MultiInline<S, const N: usize> {
@@ -34,7 +34,9 @@ where
     type Handle<T: ?Sized + Pointee> = OffsetMetaHandle<T>;
 
     unsafe fn get<T: ?Sized>(&self, handle: Self::Handle<T>) -> NonNull<T> {
-        let ptr: NonNull<()> = NonNull::new(self.storage[handle.offset()].get()).unwrap().cast();
+        let ptr: NonNull<()> = NonNull::new(self.storage[handle.offset()].get())
+            .unwrap()
+            .cast();
         NonNull::from_raw_parts(ptr, handle.metadata())
     }
 
@@ -77,7 +79,10 @@ where
         let new_layout = Layout::array::<T>(capacity).map_err(|_| StorageError::exceeds_max())?;
 
         if self.will_fit::<[T]>(capacity) {
-            Ok(OffsetMetaHandle::from_offset_meta(handle.offset(), capacity))
+            Ok(OffsetMetaHandle::from_offset_meta(
+                handle.offset(),
+                capacity,
+            ))
         } else {
             Err(StorageError::InsufficientSpace {
                 expected: new_layout.size(),
@@ -92,7 +97,10 @@ where
         capacity: usize,
     ) -> error::Result<Self::Handle<[T]>> {
         debug_assert!(capacity <= handle.metadata());
-        Ok(OffsetMetaHandle::from_offset_meta(handle.offset(), capacity))
+        Ok(OffsetMetaHandle::from_offset_meta(
+            handle.offset(),
+            capacity,
+        ))
     }
 }
 
