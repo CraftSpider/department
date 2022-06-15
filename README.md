@@ -39,6 +39,6 @@ edge cases (ZST, alignment requirements, etc).
 
 ### Missing Collections
 
-`btree`, an implementation of a `BTreeMap` and `BTreeSet`
-`hash`, an implementation of a `HashMap` and `HashSet`
-`arc`, implementation for atomically ref-counted items
+- `btree`, an implementation of a `BTreeMap` and `BTreeSet`
+- `hash`, an implementation of a `HashMap` and `HashSet`
+- `arc`, implementation for atomically ref-counted items
