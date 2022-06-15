@@ -59,6 +59,7 @@ impl<T> RcBox<T> {
     }
 }
 
+#[cfg(feature = "unsize")]
 impl<T, U> CoerceUnsized<RcBox<U>> for RcBox<T>
 where
     T: ?Sized + CoerceUnsized<U>,
