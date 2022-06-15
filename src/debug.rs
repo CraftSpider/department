@@ -8,8 +8,8 @@ use core::marker::Unsize;
 use core::ptr::{NonNull, Pointee};
 use spin::Mutex;
 
-use crate::collections::Vec;
 use crate::base::{ExactSizeStorage, LeaksafeStorage, MultiItemStorage, Storage};
+use crate::collections::Vec;
 
 struct DebugState<S: Storage> {
     single_allocated: Option<DebugHandle<S, ()>>,
@@ -267,8 +267,8 @@ mod private {
     impl<S: Storage, T: ?Sized> Copy for DebugHandle<S, T> {}
 }
 
-use private::DebugHandle;
 use crate::alloc::GlobalAlloc;
+use private::DebugHandle;
 
 #[cfg(test)]
 mod tests {
