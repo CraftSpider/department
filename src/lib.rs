@@ -38,6 +38,7 @@ extern crate core;
 
 mod utils;
 
+pub mod backing;
 pub mod base;
 pub mod error;
 
@@ -49,10 +50,10 @@ pub mod alloc;
 pub mod debug;
 #[cfg(feature = "fallback")]
 pub mod fallback;
-#[cfg(feature = "inline")]
-pub mod inline;
 #[cfg(feature = "heap")]
 pub mod heap;
+#[cfg(feature = "inline")]
+pub mod inline;
 #[cfg(feature = "static")]
 pub mod statics;
 

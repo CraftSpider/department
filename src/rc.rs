@@ -242,8 +242,7 @@ mod tests {
         assert_eq!(*rc1, 1);
         assert_eq!(*rc2, 1);
 
-        let rc3 = weak1.upgrade()
-            .unwrap();
+        let rc3 = weak1.upgrade().unwrap();
 
         assert_eq!(*rc3, 1);
 

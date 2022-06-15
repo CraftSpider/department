@@ -7,6 +7,30 @@
 //!
 //! # Disadvantages
 //! - Increase binary or stack size
+//!
+//! # Examples
+//!
+//! ```
+//! # use department::base::{ClonesafeStorage, Storage};
+//! # use department::heap::VirtHeap;
+//! # use department::backing::Backing;
+//! # use department::rc::Rc;
+//!
+//! struct Node<'a, S: 'a + Storage + ClonesafeStorage> {
+//!     inner: Rc<&'a str, S>,
+//! }
+//!
+//! fn shared_item() {
+//!     let rc_heap = VirtHeap::<Backing<16>, 1>::new();
+//!     let rc1 = Rc::new_in("Hello World!", &rc_heap);
+//!     let rc2 = Rc::clone(&rc1);
+//!
+//!     let node1 = Node { inner: rc1 };
+//!     let node2 = Node { inner: rc2 };
+//!
+//!     // Use node as you see fit - any `Rc`s will live till the end of scope
+//! }
+//! ```
 
 use core::alloc::Layout;
 use core::cell::UnsafeCell;
@@ -23,10 +47,12 @@ use crate::base::{
 use crate::error::{Result, StorageError};
 use crate::utils;
 
+/// Given a size, determine how many blocks are required to fit it
 fn blocks<S>(size: usize) -> usize {
     size / mem::size_of::<S>()
 }
 
+/// Given a type and a length, determine how many blocks are needed to fit length instances
 fn blocks_for<S, T>(capacity: usize) -> usize {
     (mem::size_of::<T>() * capacity) / mem::size_of::<S>()
 }
@@ -34,13 +60,19 @@ fn blocks_for<S, T>(capacity: usize) -> usize {
 /// A storage based on a variable (static or on the stack), supporting heap-like behavior but
 /// compiled into the binary. Useful for environments with no allocator support but sufficient space
 /// for either a larger binary or more stack usage.
+///
+/// Note that any items stored take at minimum one instance of `S` due to current limitations on
+/// implementation.
 #[derive(Debug)]
 pub struct VirtHeap<S, const N: usize> {
     used: spin::Mutex<[bool; N]>,
     storage: UnsafeCell<[MaybeUninit<S>; N]>,
 }
 
-impl<S, const N: usize> VirtHeap<S, N> {
+impl<S, const N: usize> VirtHeap<S, N>
+where
+    S: StorageSafe,
+{
     /// Create a new heap
     pub const fn new() -> VirtHeap<S, N> {
         VirtHeap {
@@ -53,8 +85,8 @@ impl<S, const N: usize> VirtHeap<S, N> {
 }
 
 impl<S, const N: usize> VirtHeap<S, N>
-    where
-        S: StorageSafe,
+where
+    S: StorageSafe,
 {
     fn find_lock(&self, size: usize) -> Result<usize> {
         let mut used = self.used.lock();
@@ -172,8 +204,8 @@ impl<S, const N: usize> VirtHeap<S, N>
 }
 
 unsafe impl<S, const N: usize> Storage for &VirtHeap<S, N>
-    where
-        S: StorageSafe,
+where
+    S: StorageSafe,
 {
     type Handle<T: ?Sized> = HeapHandle<T>;
 
@@ -254,8 +286,8 @@ unsafe impl<S, const N: usize> Storage for &VirtHeap<S, N>
 }
 
 unsafe impl<S, const N: usize> MultiItemStorage for &VirtHeap<S, N>
-    where
-        S: StorageSafe,
+where
+    S: StorageSafe,
 {
     fn allocate<T: ?Sized + Pointee>(&mut self, meta: T::Metadata) -> Result<Self::Handle<T>> {
         let layout = utils::layout_of::<T>(meta);
@@ -272,8 +304,8 @@ unsafe impl<S, const N: usize> MultiItemStorage for &VirtHeap<S, N>
 }
 
 impl<S, const N: usize> ExactSizeStorage for &VirtHeap<S, N>
-    where
-        S: StorageSafe,
+where
+    S: StorageSafe,
 {
     fn will_fit<T: ?Sized + Pointee>(&self, meta: T::Metadata) -> bool {
         let layout = utils::layout_of::<T>(meta);
@@ -335,8 +367,8 @@ mod private {
     }
 
     impl<T: ?Sized> fmt::Debug for HeapHandle<T>
-        where
-            <T as Pointee>::Metadata: fmt::Debug,
+    where
+        <T as Pointee>::Metadata: fmt::Debug,
     {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
             f.debug_tuple("HeapHandle")

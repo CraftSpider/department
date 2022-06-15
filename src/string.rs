@@ -78,6 +78,24 @@ where
     }
 }
 
+impl<S> PartialEq for String<S>
+where
+    S: Storage,
+{
+    fn eq(&self, other: &Self) -> bool {
+        **self == **other
+    }
+}
+
+impl<S> PartialEq<str> for String<S>
+where
+    S: Storage,
+{
+    fn eq(&self, other: &str) -> bool {
+        **self == *other
+    }
+}
+
 impl<S> Default for String<S>
 where
     S: Storage + Default,
@@ -148,5 +166,18 @@ where
 {
     fn borrow(&self) -> &str {
         &**self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::inline::SingleInline;
+
+    #[test]
+    fn test_add() {
+        let s = String::<SingleInline<[u8; 20]>>::from("Hello") + " World!";
+
+        assert_eq!(&s, "Hello World!");
     }
 }
