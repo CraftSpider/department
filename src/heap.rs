@@ -39,7 +39,7 @@ use core::marker::Unsize;
 use core::mem::MaybeUninit;
 use core::ops::Range;
 use core::ptr::{NonNull, Pointee};
-use core::{fmt, mem, ptr};
+use core::{mem, ptr};
 
 use crate::base::{
     ClonesafeStorage, ExactSizeStorage, FromLeakedStorage, LeaksafeStorage, MultiItemStorage,
@@ -152,7 +152,7 @@ where
 
     fn grow_in_place<T>(
         &self,
-        handle: HeapHandle<[T]>,
+        handle: OffsetMetaHandle<[T]>,
         old_layout: Layout,
         new_layout: Layout,
     ) -> bool {
@@ -161,7 +161,7 @@ where
         let old_blocks = blocks::<S>(old_layout.size());
         let new_blocks = blocks::<S>(new_layout.size());
 
-        let after_old = (handle.0 + old_blocks)..(handle.0 + new_blocks);
+        let after_old = (handle.offset() + old_blocks)..(handle.offset() + new_blocks);
 
         let has_space = used[after_old.clone()].iter().all(|&i| !i);
 
@@ -178,16 +178,16 @@ where
         new_layout: Layout,
     ) -> Option<usize> {
         let mut used = self.used.lock();
-        let old_range = handle.0..(handle.0 + blocks_for::<S, T>(handle.1));
+        let old_range = handle.offset()..(handle.offset() + blocks_for::<S, T>(handle.metadata()));
 
-        if handle.1 != 0 {
+        if handle.metadata() != 0 {
             self.unlock_range(&mut used, old_range.clone());
         }
 
         let new_range = match self.find_open(&used, new_layout.size()) {
             Ok(open) => open,
             Err(_) => {
-                if handle.1 != 0 {
+                if handle.metadata() != 0 {
                     self.lock_range(&mut used, old_range);
                 }
                 return None;
@@ -208,25 +208,25 @@ unsafe impl<S, const N: usize> Storage for &VirtHeap<S, N>
 where
     S: StorageSafe,
 {
-    type Handle<T: ?Sized> = HeapHandle<T>;
+    type Handle<T: ?Sized> = OffsetMetaHandle<T>;
 
     unsafe fn get<T: ?Sized>(&self, handle: Self::Handle<T>) -> NonNull<T> {
         // SAFETY: We only access slices of the mutex this handle has a lock on
-        let ptr = NonNull::new(ptr::addr_of_mut!((*self.storage.get())[handle.0]))
+        let ptr = NonNull::new(ptr::addr_of_mut!((*self.storage.get())[handle.offset()]))
             .expect("Valid handle")
             .cast();
-        NonNull::from_raw_parts(ptr, handle.1)
+        NonNull::from_raw_parts(ptr, handle.metadata())
     }
 
     fn cast<T: ?Sized + Pointee, U>(&self, handle: Self::Handle<T>) -> Self::Handle<U> {
-        HeapHandle(handle.0, ())
+        handle.cast()
     }
 
     fn cast_unsized<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(
         &self,
         handle: Self::Handle<T>,
     ) -> Self::Handle<U> {
-        HeapHandle(handle.0, handle.1)
+        handle.cast_unsized()
     }
 
     #[cfg(feature = "unsize")]
@@ -234,9 +234,7 @@ where
         &self,
         handle: Self::Handle<T>,
     ) -> Self::Handle<U> {
-        let element = <Self as Storage>::get(self, handle);
-        let meta = (element.as_ptr() as *mut U).to_raw_parts().1;
-        HeapHandle(handle.0, meta)
+        handle.coerce()
     }
 
     fn allocate_single<T: ?Sized + Pointee>(
@@ -255,16 +253,16 @@ where
         handle: Self::Handle<[T]>,
         capacity: usize,
     ) -> Result<Self::Handle<[T]>> {
-        debug_assert!(capacity >= handle.1);
+        debug_assert!(capacity >= handle.metadata());
         // We need to check if we can grow in-place. If not, then we need to see if we have any
         // open space for the new range, ignoring ourselves as we're allowed to overwrite that.
-        let old_layout = Layout::array::<T>(handle.1).expect("Valid handle");
+        let old_layout = Layout::array::<T>(handle.metadata()).expect("Valid handle");
         let new_layout = Layout::array::<T>(capacity).map_err(|_| StorageError::exceeds_max())?;
 
         if self.grow_in_place(handle, old_layout, new_layout) {
-            Ok(HeapHandle(handle.0, capacity))
+            Ok(OffsetMetaHandle::from_offset_meta(handle.offset(), capacity))
         } else if let Some(new_start) = self.grow_move(handle, new_layout) {
-            Ok(HeapHandle(new_start, capacity))
+            Ok(OffsetMetaHandle::from_offset_meta(new_start, capacity))
         } else {
             Err(StorageError::InsufficientSpace {
                 expected: new_layout.size(),
@@ -278,12 +276,12 @@ where
         handle: Self::Handle<[T]>,
         capacity: usize,
     ) -> Result<Self::Handle<[T]>> {
-        debug_assert!(capacity <= handle.1);
+        debug_assert!(capacity <= handle.metadata());
         self.unlock_range(
             &mut self.used.lock(),
-            (handle.0 + capacity)..(handle.0 + handle.1),
+            (handle.offset() + capacity)..(handle.offset() + handle.metadata()),
         );
-        Ok(HeapHandle(handle.0, capacity))
+        Ok(OffsetMetaHandle::from_offset_meta(handle.offset(), capacity))
     }
 }
 
@@ -295,13 +293,13 @@ where
         let layout = utils::layout_of::<T>(meta);
         utils::validate_layout_for::<[S; N]>(layout)?;
         let start = self.find_lock(layout.size())?;
-        Ok(HeapHandle(start, meta))
+        Ok(OffsetMetaHandle::from_offset_meta(start, meta))
     }
 
     unsafe fn deallocate<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>) {
         let layout = Layout::for_value(<Self as Storage>::get(self, handle).as_ref());
         let mut used = self.used.lock();
-        self.unlock_range(&mut used, handle.0..(handle.0 + blocks::<S>(layout.size())));
+        self.unlock_range(&mut used, handle.offset()..(handle.offset() + blocks::<S>(layout.size())));
     }
 }
 
@@ -340,7 +338,7 @@ where
             .try_into()
             .unwrap();
 
-        HeapHandle(offset, meta)
+        OffsetMetaHandle::from_offset_meta(offset, meta)
     }
 }
 
@@ -349,39 +347,7 @@ unsafe impl<S: Send + StorageSafe, const N: usize> Send for VirtHeap<S, N> {}
 // SAFETY: This type only accesses the inner cell when atomically claimed
 unsafe impl<S: Sync + StorageSafe, const N: usize> Sync for VirtHeap<S, N> {}
 
-mod private {
-    use super::*;
-
-    pub struct HeapHandle<T: ?Sized + Pointee>(pub(crate) usize, pub(crate) T::Metadata);
-
-    impl<T: ?Sized> Clone for HeapHandle<T> {
-        fn clone(&self) -> Self {
-            *self
-        }
-    }
-
-    impl<T: ?Sized> Copy for HeapHandle<T> {}
-
-    impl<T: ?Sized> PartialEq for HeapHandle<T> {
-        fn eq(&self, other: &HeapHandle<T>) -> bool {
-            self.0 == other.0 && self.1 == other.1
-        }
-    }
-
-    impl<T: ?Sized> fmt::Debug for HeapHandle<T>
-    where
-        <T as Pointee>::Metadata: fmt::Debug,
-    {
-        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-            f.debug_tuple("HeapHandle")
-                .field(&self.0)
-                .field(&self.1)
-                .finish()
-        }
-    }
-}
-
-use private::HeapHandle;
+use crate::handles::OffsetMetaHandle;
 
 #[cfg(test)]
 mod tests {

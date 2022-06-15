@@ -9,6 +9,7 @@ use core::{fmt, mem};
 use crate::base::{ExactSizeStorage, MultiItemStorage, Storage, StorageSafe};
 use crate::error::StorageError;
 use crate::{error, utils};
+use crate::handles::OffsetMetaHandle;
 
 /// Inline multi-element storage implementation
 pub struct MultiInline<S, const N: usize> {
@@ -30,22 +31,22 @@ unsafe impl<S, const N: usize> Storage for MultiInline<S, N>
 where
     S: StorageSafe,
 {
-    type Handle<T: ?Sized + Pointee> = MultiInlineHandle<T>;
+    type Handle<T: ?Sized + Pointee> = OffsetMetaHandle<T>;
 
     unsafe fn get<T: ?Sized>(&self, handle: Self::Handle<T>) -> NonNull<T> {
-        let ptr: NonNull<()> = NonNull::new(self.storage[handle.0].get()).unwrap().cast();
-        NonNull::from_raw_parts(ptr, handle.1)
+        let ptr: NonNull<()> = NonNull::new(self.storage[handle.offset()].get()).unwrap().cast();
+        NonNull::from_raw_parts(ptr, handle.metadata())
     }
 
     fn cast<T: ?Sized + Pointee, U>(&self, handle: Self::Handle<T>) -> Self::Handle<U> {
-        MultiInlineHandle(handle.0, ())
+        handle.cast()
     }
 
     fn cast_unsized<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(
         &self,
         handle: Self::Handle<T>,
     ) -> Self::Handle<U> {
-        MultiInlineHandle(handle.0, handle.1)
+        handle.cast_unsized()
     }
 
     #[cfg(feature = "unsize")]
@@ -53,9 +54,7 @@ where
         &self,
         handle: Self::Handle<T>,
     ) -> Self::Handle<U> {
-        let element = self.get(handle);
-        let meta = (element.as_ptr() as *mut U).to_raw_parts().1;
-        MultiInlineHandle(handle.0, meta)
+        handle.coerce()
     }
 
     fn allocate_single<T: ?Sized + Pointee>(
@@ -74,11 +73,11 @@ where
         handle: Self::Handle<[T]>,
         capacity: usize,
     ) -> error::Result<Self::Handle<[T]>> {
-        debug_assert!(capacity >= handle.1);
+        debug_assert!(capacity >= handle.metadata());
         let new_layout = Layout::array::<T>(capacity).map_err(|_| StorageError::exceeds_max())?;
 
         if self.will_fit::<[T]>(capacity) {
-            Ok(MultiInlineHandle(handle.0, capacity))
+            Ok(OffsetMetaHandle::from_offset_meta(handle.offset(), capacity))
         } else {
             Err(StorageError::InsufficientSpace {
                 expected: new_layout.size(),
@@ -92,8 +91,8 @@ where
         handle: Self::Handle<[T]>,
         capacity: usize,
     ) -> error::Result<Self::Handle<[T]>> {
-        debug_assert!(capacity <= handle.1);
-        Ok(MultiInlineHandle(handle.0, capacity))
+        debug_assert!(capacity <= handle.metadata());
+        Ok(OffsetMetaHandle::from_offset_meta(handle.offset(), capacity))
     }
 }
 
@@ -116,11 +115,11 @@ where
 
         self.used[pos] = true;
 
-        Ok(MultiInlineHandle(pos, meta))
+        Ok(OffsetMetaHandle::from_offset_meta(pos, meta))
     }
 
     unsafe fn deallocate<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>) {
-        self.used[handle.0] = false;
+        self.used[handle.offset()] = false;
     }
 }
 
@@ -157,20 +156,3 @@ impl<S, const N: usize> Default for MultiInline<S, N> {
         MultiInline::new()
     }
 }
-
-#[derive(Debug)]
-pub struct MultiInlineHandle<T: ?Sized + Pointee>(usize, T::Metadata);
-
-impl<T: ?Sized> PartialEq for MultiInlineHandle<T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0 && self.1 == other.1
-    }
-}
-
-impl<T: ?Sized + Pointee> Clone for MultiInlineHandle<T> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<T: ?Sized + Pointee> Copy for MultiInlineHandle<T> {}

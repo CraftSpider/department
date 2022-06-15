@@ -8,6 +8,7 @@ use core::{fmt, mem};
 
 use crate::base::{ExactSizeStorage, Storage, StorageSafe};
 use crate::error::{Result, StorageError};
+use crate::handles::MetaHandle;
 use crate::utils;
 
 /// Inline single-element storage implementation
@@ -28,22 +29,22 @@ unsafe impl<S> Storage for SingleInline<S>
 where
     S: StorageSafe,
 {
-    type Handle<T: ?Sized + Pointee> = SingleInlineHandle<T>;
+    type Handle<T: ?Sized + Pointee> = MetaHandle<T>;
 
     unsafe fn get<T: ?Sized + Pointee>(&self, handle: Self::Handle<T>) -> NonNull<T> {
         let ptr: NonNull<()> = NonNull::new(self.storage.get()).unwrap().cast();
-        NonNull::from_raw_parts(ptr, handle.0)
+        NonNull::from_raw_parts(ptr, handle.metadata())
     }
 
-    fn cast<T: ?Sized + Pointee, U>(&self, _: Self::Handle<T>) -> Self::Handle<U> {
-        SingleInlineHandle(())
+    fn cast<T: ?Sized + Pointee, U>(&self, handle: Self::Handle<T>) -> Self::Handle<U> {
+        handle.cast()
     }
 
     fn cast_unsized<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(
         &self,
         handle: Self::Handle<T>,
     ) -> Self::Handle<U> {
-        SingleInlineHandle(handle.0)
+        handle.cast_unsized()
     }
 
     #[cfg(feature = "unsize")]
@@ -51,9 +52,7 @@ where
         &self,
         handle: Self::Handle<T>,
     ) -> Self::Handle<U> {
-        let element = self.get(handle);
-        let meta = (element.as_ptr() as *mut U).to_raw_parts().1;
-        SingleInlineHandle(meta)
+        handle.coerce()
     }
 
     fn allocate_single<T: ?Sized + Pointee>(
@@ -61,7 +60,7 @@ where
         meta: T::Metadata,
     ) -> Result<Self::Handle<T>> {
         utils::validate_layout::<T, S>(meta)?;
-        Ok(SingleInlineHandle(meta))
+        Ok(MetaHandle::from_metadata(meta))
     }
 
     unsafe fn deallocate_single<T: ?Sized + Pointee>(&mut self, _handle: Self::Handle<T>) {}
@@ -71,11 +70,11 @@ where
         handle: Self::Handle<[T]>,
         capacity: usize,
     ) -> Result<Self::Handle<[T]>> {
-        debug_assert!(capacity >= handle.0);
+        debug_assert!(capacity >= handle.metadata());
         let new_layout = Layout::array::<T>(capacity).map_err(|_| StorageError::exceeds_max())?;
 
         if self.will_fit::<[T]>(capacity) {
-            Ok(SingleInlineHandle(capacity))
+            Ok(MetaHandle::from_metadata(capacity))
         } else {
             Err(StorageError::InsufficientSpace {
                 expected: new_layout.size(),
@@ -89,8 +88,8 @@ where
         handle: Self::Handle<[T]>,
         capacity: usize,
     ) -> Result<Self::Handle<[T]>> {
-        debug_assert!(capacity <= handle.0);
-        Ok(SingleInlineHandle(capacity))
+        debug_assert!(capacity <= handle.metadata());
+        Ok(MetaHandle::from_metadata(capacity))
     }
 }
 
@@ -127,23 +126,6 @@ impl<S> Default for SingleInline<S> {
         SingleInline::new()
     }
 }
-
-// FIXME: Replace with JustMetadata when that merges
-pub struct SingleInlineHandle<T: ?Sized + Pointee>(T::Metadata);
-
-impl<T: ?Sized> PartialEq for SingleInlineHandle<T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-
-impl<T: ?Sized + Pointee> Clone for SingleInlineHandle<T> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<T: ?Sized + Pointee> Copy for SingleInlineHandle<T> {}
 
 #[cfg(test)]
 mod tests {

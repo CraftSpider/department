@@ -8,6 +8,7 @@ use super::traits::StaticStorage;
 use super::StorageCell;
 use crate::base::{ExactSizeStorage, Storage, StorageSafe};
 use crate::error::{Result, StorageError};
+use crate::handles::MetaHandle;
 use crate::utils;
 
 /// Static single-element storage implementation
@@ -23,22 +24,22 @@ unsafe impl<S> Storage for SingleStatic<S>
 where
     S: StorageSafe,
 {
-    type Handle<T: ?Sized> = SingleStaticHandle<T>;
+    type Handle<T: ?Sized> = MetaHandle<T>;
 
     unsafe fn get<T: ?Sized>(&self, handle: Self::Handle<T>) -> NonNull<T> {
         let ptr: NonNull<()> = self.0.as_ptr().cast();
-        NonNull::from_raw_parts(ptr, handle.0)
+        NonNull::from_raw_parts(ptr, handle.metadata())
     }
 
-    fn cast<T: ?Sized + Pointee, U>(&self, _: Self::Handle<T>) -> Self::Handle<U> {
-        SingleStaticHandle(())
+    fn cast<T: ?Sized + Pointee, U>(&self, handle: Self::Handle<T>) -> Self::Handle<U> {
+        handle.cast()
     }
 
     fn cast_unsized<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(
         &self,
         handle: Self::Handle<T>,
     ) -> Self::Handle<U> {
-        SingleStaticHandle(handle.0)
+        handle.cast_unsized()
     }
 
     #[cfg(feature = "unsize")]
@@ -46,9 +47,7 @@ where
         &self,
         handle: Self::Handle<T>,
     ) -> Self::Handle<U> {
-        let element = self.get(handle);
-        let meta = (element.as_ptr() as *mut U).to_raw_parts().1;
-        SingleStaticHandle(meta)
+        handle.coerce()
     }
 
     fn allocate_single<T: ?Sized + Pointee>(
@@ -56,7 +55,7 @@ where
         meta: T::Metadata,
     ) -> Result<Self::Handle<T>> {
         utils::validate_layout::<T, S>(meta)?;
-        Ok(SingleStaticHandle(meta))
+        Ok(MetaHandle::from_metadata(meta))
     }
 
     unsafe fn deallocate_single<T: ?Sized>(&mut self, _handle: Self::Handle<T>) {}
@@ -66,11 +65,11 @@ where
         handle: Self::Handle<[T]>,
         capacity: usize,
     ) -> Result<Self::Handle<[T]>> {
-        debug_assert!(capacity >= handle.0);
+        debug_assert!(capacity >= handle.metadata());
         let new_layout = Layout::array::<T>(capacity).map_err(|_| StorageError::exceeds_max())?;
 
         if self.will_fit::<[T]>(capacity) {
-            Ok(SingleStaticHandle(capacity))
+            Ok(MetaHandle::from_metadata(capacity))
         } else {
             Err(StorageError::InsufficientSpace {
                 expected: new_layout.size(),
@@ -84,8 +83,8 @@ where
         handle: Self::Handle<[T]>,
         capacity: usize,
     ) -> Result<Self::Handle<[T]>> {
-        debug_assert!(capacity <= handle.0);
-        Ok(SingleStaticHandle(capacity))
+        debug_assert!(capacity <= handle.metadata());
+        Ok(MetaHandle::from_metadata(capacity))
     }
 }
 
@@ -115,22 +114,6 @@ impl<S> Drop for SingleStatic<S> {
         self.0.release()
     }
 }
-
-pub struct SingleStaticHandle<T: ?Sized + Pointee>(T::Metadata);
-
-impl<T: ?Sized> PartialEq for SingleStaticHandle<T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-
-impl<T: ?Sized + Pointee> Clone for SingleStaticHandle<T> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<T: ?Sized + Pointee> Copy for SingleStaticHandle<T> {}
 
 #[cfg(test)]
 mod tests {

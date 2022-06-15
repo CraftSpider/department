@@ -7,6 +7,7 @@ use core::ptr::{NonNull, Pointee};
 use super::StorageCell;
 use crate::base::{ExactSizeStorage, MultiItemStorage, Storage, StorageSafe};
 use crate::error::{Result, StorageError};
+use crate::handles::OffsetMetaHandle;
 use crate::statics::traits::StaticStorage;
 use crate::utils;
 
@@ -29,23 +30,23 @@ unsafe impl<S, const N: usize> Storage for MultiStatic<S, N>
 where
     S: StorageSafe,
 {
-    type Handle<T: ?Sized> = MultiStaticHandle<T>;
+    type Handle<T: ?Sized> = OffsetMetaHandle<T>;
 
     unsafe fn get<T: ?Sized>(&self, handle: Self::Handle<T>) -> NonNull<T> {
-        let idx = core::ptr::addr_of_mut!((*self.storage.as_ptr().as_ptr())[handle.0]);
+        let idx = core::ptr::addr_of_mut!((*self.storage.as_ptr().as_ptr())[handle.offset()]);
         let ptr: NonNull<()> = NonNull::new(idx).unwrap().cast();
-        NonNull::from_raw_parts(ptr, handle.1)
+        NonNull::from_raw_parts(ptr, handle.metadata())
     }
 
     fn cast<T: ?Sized + Pointee, U>(&self, handle: Self::Handle<T>) -> Self::Handle<U> {
-        MultiStaticHandle(handle.0, ())
+        handle.cast()
     }
 
     fn cast_unsized<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(
         &self,
         handle: Self::Handle<T>,
     ) -> Self::Handle<U> {
-        MultiStaticHandle(handle.0, handle.1)
+        handle.cast_unsized()
     }
 
     #[cfg(feature = "unsize")]
@@ -53,9 +54,7 @@ where
         &self,
         handle: Self::Handle<T>,
     ) -> Self::Handle<U> {
-        let element = self.get(handle);
-        let meta = (element.as_ptr() as *mut U).to_raw_parts().1;
-        MultiStaticHandle(handle.0, meta)
+        handle.coerce()
     }
 
     fn allocate_single<T: ?Sized + Pointee>(
@@ -74,11 +73,11 @@ where
         handle: Self::Handle<[T]>,
         capacity: usize,
     ) -> Result<Self::Handle<[T]>> {
-        debug_assert!(capacity >= handle.1);
+        debug_assert!(capacity >= handle.metadata());
         let new_layout = Layout::array::<T>(capacity).map_err(|_| StorageError::exceeds_max())?;
 
         if self.will_fit::<[T]>(capacity) {
-            Ok(MultiStaticHandle(handle.0, capacity))
+            Ok(OffsetMetaHandle::from_offset_meta(handle.offset(), capacity))
         } else {
             Err(StorageError::InsufficientSpace {
                 expected: new_layout.size(),
@@ -92,8 +91,8 @@ where
         handle: Self::Handle<[T]>,
         capacity: usize,
     ) -> Result<Self::Handle<[T]>> {
-        debug_assert!(capacity <= handle.1);
-        Ok(MultiStaticHandle(handle.0, capacity))
+        debug_assert!(capacity <= handle.metadata());
+        Ok(OffsetMetaHandle::from_offset_meta(handle.offset(), capacity))
     }
 }
 
@@ -112,11 +111,11 @@ where
 
         self.used[pos] = true;
 
-        Ok(MultiStaticHandle(pos, meta))
+        Ok(OffsetMetaHandle::from_offset_meta(pos, meta))
     }
 
     unsafe fn deallocate<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>) {
-        self.used[handle.0] = false;
+        self.used[handle.offset()] = false;
     }
 }
 
@@ -140,19 +139,3 @@ impl<S, const N: usize> Drop for MultiStatic<S, N> {
         self.storage.release()
     }
 }
-
-pub struct MultiStaticHandle<T: ?Sized + Pointee>(usize, T::Metadata);
-
-impl<T: ?Sized> PartialEq for MultiStaticHandle<T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0 && self.1 == other.1
-    }
-}
-
-impl<T: ?Sized + Pointee> Clone for MultiStaticHandle<T> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<T: ?Sized + Pointee> Copy for MultiStaticHandle<T> {}
