@@ -175,7 +175,7 @@ where
 
         // Move all items after it back one
         for idx in (pos + 1)..self.len {
-            unsafe { ptr::write(&mut slice[idx], ptr::read(&mut slice[idx + 1])) };
+            unsafe { ptr::write(&mut slice[idx], ptr::read(&slice[idx + 1])) };
         }
 
         // SAFETY: Popped element must be initialized, as length counts initialized items
