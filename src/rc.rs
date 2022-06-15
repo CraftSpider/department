@@ -9,7 +9,7 @@ use core::ops::Deref;
 use core::marker::Unsize;
 #[cfg(feature = "unsize")]
 use core::ops::CoerceUnsized;
-use std::mem;
+use core::mem;
 
 #[repr(C)]
 #[derive(Debug)]
