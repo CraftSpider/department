@@ -5,6 +5,11 @@ use core::borrow::Borrow;
 use core::cell::Cell;
 use core::marker::PhantomData;
 use core::ops::Deref;
+#[cfg(feature = "unsize")]
+use core::marker::Unsize;
+#[cfg(feature = "unsize")]
+use core::ops::CoerceUnsized;
+use std::mem;
 
 #[repr(C)]
 #[derive(Debug)]
@@ -54,6 +59,12 @@ impl<T> RcBox<T> {
     }
 }
 
+impl<T, U> CoerceUnsized<RcBox<U>> for RcBox<T>
+where
+    T: ?Sized + CoerceUnsized<U>,
+    U: ?Sized,
+{}
+
 /// Storage-based implementation of [`Rc`](std::rc::Rc).
 ///
 /// Requires that the storage be a [`ClonesafeStorage`], which excludes inline and some other forms
@@ -84,6 +95,25 @@ impl<T: ?Sized, S: Storage + ClonesafeStorage> Rc<T, S> {
         Weak {
             handle: this.handle,
             storage: this.storage.clone(),
+        }
+    }
+
+    /// Perform an unsizing operation on `self`. A temporary solution to limitations with
+    /// manual unsizing.
+    #[cfg(feature = "unsize")]
+    pub fn coerce<U: ?Sized>(self) -> Rc<U, S>
+    where
+        T: Unsize<U>,
+    {
+        // SAFETY: Our handle is guaranteed valid by internal invariant
+        let handle = unsafe { self.storage.coerce::<_, RcBox<U>>(self.handle) };
+        let storage = self.storage.clone();
+        // Ensure we don't decrement refcount
+        mem::forget(self);
+        Rc {
+            handle,
+            storage,
+            phantom: PhantomData,
         }
     }
 }
@@ -153,6 +183,15 @@ impl<T: ?Sized, S: Storage + ClonesafeStorage> Borrow<T> for Rc<T, S> {
         &**self
     }
 }
+
+#[cfg(feature = "unsize")]
+impl<T, U, S> CoerceUnsized<Rc<U, S>> for Rc<T, S>
+where
+    T: ?Sized,
+    U: ?Sized,
+    S: Storage + ClonesafeStorage,
+    S::Handle<RcBox<T>>: CoerceUnsized<S::Handle<RcBox<U>>>,
+{}
 
 struct WeakInner<'a> {
     strong: &'a Cell<usize>,
