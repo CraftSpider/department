@@ -12,6 +12,7 @@ use crate::base::{ExactSizeStorage, LeaksafeStorage, MultiItemStorage, Storage};
 use crate::error;
 
 /// A storage which attempts to store in one storage, then falls back to a second
+#[derive(Copy, Clone)]
 pub struct FallbackStorage<S1, S2> {
     first: S1,
     second: S2,
