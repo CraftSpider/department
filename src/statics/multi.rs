@@ -141,6 +141,12 @@ impl<S, const N: usize> Drop for MultiStatic<S, N> {
 
 pub struct MultiStaticHandle<T: ?Sized + Pointee>(usize, T::Metadata);
 
+impl<T: ?Sized> PartialEq for MultiStaticHandle<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0 && self.1 == other.1
+    }
+}
+
 impl<T: ?Sized + Pointee> Clone for MultiStaticHandle<T> {
     fn clone(&self) -> Self {
         *self

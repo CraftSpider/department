@@ -159,6 +159,12 @@ impl<S, const N: usize> Default for MultiInline<S, N> {
 #[derive(Debug)]
 pub struct MultiInlineHandle<T: ?Sized + Pointee>(usize, T::Metadata);
 
+impl<T: ?Sized> PartialEq for MultiInlineHandle<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0 && self.1 == other.1
+    }
+}
+
 impl<T: ?Sized + Pointee> Clone for MultiInlineHandle<T> {
     fn clone(&self) -> Self {
         *self

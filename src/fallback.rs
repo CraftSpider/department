@@ -197,6 +197,20 @@ mod private {
         Second(S2::Handle<T>),
     }
 
+    impl<S1: Storage, S2: Storage, T: ?Sized> PartialEq for FallbackHandle<S1, S2, T>
+    where
+        S1::Handle<T>: PartialEq,
+        S2::Handle<T>: PartialEq,
+    {
+        fn eq(&self, other: &Self) -> bool {
+            match (self, other) {
+                (FallbackHandle::First(left), FallbackHandle::First(right)) => left == right,
+                (FallbackHandle::Second(left), FallbackHandle::Second(right)) => left == right,
+                _ => false,
+            }
+        }
+    }
+
     impl<S1, S2, T> Clone for FallbackHandle<S1, S2, T>
     where
         S1: Storage,

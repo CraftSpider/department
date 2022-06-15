@@ -328,6 +328,12 @@ mod private {
 
     impl<T: ?Sized> Copy for HeapHandle<T> {}
 
+    impl<T: ?Sized> PartialEq for HeapHandle<T> {
+        fn eq(&self, other: &HeapHandle<T>) -> bool {
+            self.0 == other.0 && self.1 == other.1
+        }
+    }
+
     impl<T: ?Sized> fmt::Debug for HeapHandle<T>
         where
             <T as Pointee>::Metadata: fmt::Debug,
