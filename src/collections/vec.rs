@@ -426,4 +426,11 @@ mod tests {
 
         assert_eq!(v2.as_ref(), &[1, 2]);
     }
+
+    #[test]
+    fn vec_zst() {
+        let mut v = Vec::<()>::new();
+        v.push(());
+        v.pop();
+    }
 }
