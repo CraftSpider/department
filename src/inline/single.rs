@@ -131,6 +131,12 @@ impl<S> Default for SingleInline<S> {
 // FIXME: Replace with JustMetadata when that merges
 pub struct SingleInlineHandle<T: ?Sized + Pointee>(T::Metadata);
 
+impl<T: ?Sized> PartialEq for SingleInlineHandle<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
 impl<T: ?Sized + Pointee> Clone for SingleInlineHandle<T> {
     fn clone(&self) -> Self {
         *self

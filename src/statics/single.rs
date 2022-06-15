@@ -118,6 +118,12 @@ impl<S> Drop for SingleStatic<S> {
 
 pub struct SingleStaticHandle<T: ?Sized + Pointee>(T::Metadata);
 
+impl<T: ?Sized> PartialEq for SingleStaticHandle<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
 impl<T: ?Sized + Pointee> Clone for SingleStaticHandle<T> {
     fn clone(&self) -> Self {
         *self

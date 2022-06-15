@@ -142,7 +142,7 @@ pub unsafe trait Storage {
     ///
     /// Certain extension traits may loosen these requirements (See [`LeaksafeStorage`] for an
     /// example)
-    type Handle<T: ?Sized>: Copy;
+    type Handle<T: ?Sized>: Copy + PartialEq;
 
     /// Convert a handle into a raw pointer.
     ///
