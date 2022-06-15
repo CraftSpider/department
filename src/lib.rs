@@ -30,7 +30,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "alloc", feature(allocator_api))]
 
-#[cfg(any(feature = "alloc", feature = "debug"))]
+#[cfg(any(feature = "alloc"))]
 extern crate alloc as rs_alloc;
 extern crate core;
 
@@ -59,7 +59,7 @@ pub mod statics;
 
 #[cfg(feature = "box")]
 pub mod boxed;
-#[cfg(any(feature = "vec", feature = "hash"))]
+#[cfg(any(feature = "vec"))]
 pub mod collections;
 #[cfg(feature = "rc")]
 pub mod rc;

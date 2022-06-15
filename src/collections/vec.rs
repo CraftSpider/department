@@ -162,14 +162,24 @@ where
         unsafe { out.assume_init() }
     }
 
-    /// Get an iterator over this vector
-    pub fn iter(&self) -> impl Iterator<Item = &T> {
-        self.as_ref().iter()
-    }
+    /// Remove the element at a specific position in the vector and return it
+    pub fn remove(&mut self, pos: usize) -> T {
+        self.len -= 1;
 
-    /// Get a mutable iterator over this vector
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut T> {
-        self.as_mut().iter_mut()
+        let mut ptr = unsafe { self.storage.get::<[MaybeUninit<T>]>(self.handle) };
+
+        // SAFETY: Valid handles are guaranteed to return valid pointers
+        let slice = unsafe { ptr.as_mut() };
+        let item = &mut slice[pos];
+        let out = mem::replace(item, MaybeUninit::uninit());
+
+        // Move all items after it back one
+        for idx in (pos + 1)..self.len {
+            unsafe { ptr::write(&mut slice[idx], ptr::read(&mut slice[idx + 1])) };
+        }
+
+        // SAFETY: Popped element must be initialized, as length counts initialized items
+        unsafe { out.assume_init() }
     }
 }
 

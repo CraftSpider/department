@@ -27,7 +27,7 @@ heap = []
 static = []
 alloc = []
 fallback = []
-debug = []
+debug = ["alloc", "vec"]
 
 # Different collection implementations
 all_collections = ["box", "rc", "vec", "string"]

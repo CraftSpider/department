@@ -6,16 +6,16 @@
 #[cfg(feature = "unsize")]
 use core::marker::Unsize;
 use core::ptr::{NonNull, Pointee};
-use rs_alloc::vec::Vec;
 use spin::Mutex;
 
+use crate::collections::Vec;
 use crate::base::{ExactSizeStorage, LeaksafeStorage, MultiItemStorage, Storage};
 
 struct DebugState<S: Storage> {
     single_allocated: Option<DebugHandle<S, ()>>,
     id: usize,
-    allocated_handles: Vec<DebugHandle<S, ()>>,
-    deallocated_handles: Vec<DebugHandle<S, ()>>,
+    allocated_handles: Vec<DebugHandle<S, ()>, GlobalAlloc>,
+    deallocated_handles: Vec<DebugHandle<S, ()>, GlobalAlloc>,
 }
 
 impl<S: Storage> DebugState<S> {
@@ -268,6 +268,7 @@ mod private {
 }
 
 use private::DebugHandle;
+use crate::alloc::GlobalAlloc;
 
 #[cfg(test)]
 mod tests {
