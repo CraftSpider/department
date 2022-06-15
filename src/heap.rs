@@ -34,6 +34,7 @@
 
 use core::alloc::Layout;
 use core::cell::UnsafeCell;
+#[cfg(feature = "unsize")]
 use core::marker::Unsize;
 use core::mem::MaybeUninit;
 use core::ops::Range;
@@ -228,6 +229,7 @@ where
         HeapHandle(handle.0, handle.1)
     }
 
+    #[cfg(feature = "unsize")]
     unsafe fn coerce<T: ?Sized + Pointee + Unsize<U>, U: ?Sized + Pointee>(
         &self,
         handle: Self::Handle<T>,

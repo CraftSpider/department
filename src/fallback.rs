@@ -4,6 +4,7 @@
 //! Great for small-value optimization, storing inline if an item is small but falling back
 //! to the heap for larger values.
 
+#[cfg(feature = "unsize")]
 use core::marker::Unsize;
 use core::ptr::{NonNull, Pointee};
 
@@ -74,6 +75,7 @@ where
         }
     }
 
+    #[cfg(feature = "unsize")]
     unsafe fn coerce<T: ?Sized + Unsize<U>, U: ?Sized>(
         &self,
         handle: Self::Handle<T>,

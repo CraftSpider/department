@@ -9,6 +9,7 @@
 //! - Unavailable on some embedded or 'bare-metal' platforms
 
 use core::alloc::{Allocator, Layout};
+#[cfg(feature = "unsize")]
 use core::marker::Unsize;
 use core::ptr::{NonNull, Pointee};
 use rs_alloc::alloc::Global;
@@ -65,6 +66,7 @@ unsafe impl<A: Allocator> Storage for Alloc<A> {
         NonNull::from_raw_parts(ptr, meta)
     }
 
+    #[cfg(feature = "unsize")]
     unsafe fn coerce<T: ?Sized + Pointee + Unsize<U>, U: ?Sized + Pointee>(
         &self,
         handle: Self::Handle<T>,

@@ -3,9 +3,10 @@
 use core::alloc::Layout;
 use core::borrow::{Borrow, BorrowMut};
 use core::cmp::Ordering;
+#[cfg(feature = "unsize")]
 use core::marker::Unsize;
 use core::mem::ManuallyDrop;
-#[cfg(feature = "coerce-unsized")]
+#[cfg(feature = "unsize")]
 use core::ops::CoerceUnsized;
 use core::ops::{Deref, DerefMut};
 use core::ptr::{NonNull, Pointee};
@@ -201,6 +202,7 @@ where
 
     /// Perform an unsizing operation on `self`. A temporary solution to limitations with
     /// manual unsizing.
+    #[cfg(feature = "unsize")]
     pub fn coerce<U: ?Sized>(mut self) -> Box<U, S>
     where
         T: Unsize<U>,
@@ -238,7 +240,7 @@ where
     }
 }
 
-#[cfg(feature = "coerce-unsized")]
+#[cfg(feature = "unsize")]
 impl<T, U, S> CoerceUnsized<Box<U, S>> for Box<T, S>
 where
     T: ?Sized + Pointee,

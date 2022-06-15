@@ -4,8 +4,11 @@
 //! They are separated to allow implementations to be as specific or general as they wish in
 //! what they support.
 
+#[cfg(feature = "unsize")]
 use core::marker::Unsize;
-use core::ptr::{DynMetadata, NonNull, Pointee};
+#[cfg(feature = "unsize")]
+use core::ptr::DynMetadata;
+use core::ptr::{NonNull, Pointee};
 use core::{fmt, ptr};
 
 use crate::error;
@@ -34,6 +37,7 @@ macro_rules! create_drop {
         }
 
         /// Attempt to allocate a range into this storage, initializing it with the provided `T`
+        #[cfg(feature = "unsize")]
         fn $create_range<U, T: Unsize<[U]>>(
             &mut self,
             value: T,
@@ -49,6 +53,7 @@ macro_rules! create_drop {
         }
 
         /// Attempt to allocate a dyn into this storage, initializing it with the provided `T`
+        #[cfg(feature = "unsize")]
         fn $create_dyn<Dyn: ?Sized + Pointee<Metadata = DynMetadata<Dyn>>, T: Unsize<Dyn>>(
             &mut self,
             value: T,
@@ -172,6 +177,7 @@ pub unsafe trait Storage {
     /// # Safety
     ///
     /// The provided handle must be valid. See [`Self::Handle`].
+    #[cfg(feature = "unsize")]
     unsafe fn coerce<T: ?Sized + Pointee + Unsize<U>, U: ?Sized + Pointee>(
         &self,
         handle: Self::Handle<T>,

@@ -1,5 +1,6 @@
 use core::alloc::Layout;
 use core::cell::UnsafeCell;
+#[cfg(feature = "unsize")]
 use core::marker::Unsize;
 use core::mem::MaybeUninit;
 use core::ptr::{NonNull, Pointee};
@@ -45,6 +46,7 @@ where
         SingleInlineHandle(handle.0)
     }
 
+    #[cfg(feature = "unsize")]
     unsafe fn coerce<T: ?Sized + Pointee + Unsize<U>, U: ?Sized + Pointee>(
         &self,
         handle: Self::Handle<T>,

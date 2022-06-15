@@ -3,6 +3,7 @@
 //!
 //! This will not catch *all* UB, but it should catch most obviously incorrect usages.
 
+#[cfg(feature = "unsize")]
 use core::marker::Unsize;
 use core::ptr::{NonNull, Pointee};
 use rs_alloc::vec::Vec;
@@ -122,6 +123,7 @@ where
         handle.map(|h| self.1.cast_unsized::<T, U>(h))
     }
 
+    #[cfg(feature = "unsize")]
     unsafe fn coerce<T: ?Sized + Pointee + Unsize<U>, U: ?Sized + Pointee>(
         &self,
         handle: Self::Handle<T>,

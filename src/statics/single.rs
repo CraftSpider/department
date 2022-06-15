@@ -1,4 +1,5 @@
 use core::alloc::Layout;
+#[cfg(feature = "unsize")]
 use core::marker::Unsize;
 use core::ptr::{NonNull, Pointee};
 use core::{fmt, mem};
@@ -40,6 +41,7 @@ where
         SingleStaticHandle(handle.0)
     }
 
+    #[cfg(feature = "unsize")]
     unsafe fn coerce<T: ?Sized + Pointee + Unsize<U>, U: ?Sized + Pointee>(
         &self,
         handle: Self::Handle<T>,
