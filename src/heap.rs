@@ -318,7 +318,7 @@ unsafe impl<S: Sync + StorageSafe, const N: usize> Sync for VirtHeap<S, N> {}
 mod private {
     use super::*;
 
-    pub struct HeapHandle<T: ?Sized + Pointee>(usize, T::Metadata);
+    pub struct HeapHandle<T: ?Sized + Pointee>(pub(crate) usize, pub(crate) T::Metadata);
 
     impl<T: ?Sized> Clone for HeapHandle<T> {
         fn clone(&self) -> Self {
