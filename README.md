@@ -42,3 +42,4 @@ edge cases (ZST, alignment requirements, etc).
 - `btree`, an implementation of a `BTreeMap` and `BTreeSet`
 - `hash`, an implementation of a `HashMap` and `HashSet`
 - `arc`, implementation for atomically ref-counted items
+- `os/path`, implementations of `OsString` and `PathBuf`
