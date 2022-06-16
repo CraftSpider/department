@@ -109,27 +109,25 @@ where
     type Handle<T: ?Sized> = DebugHandle<S, T>;
 
     unsafe fn get<T: ?Sized>(&self, handle: Self::Handle<T>) -> NonNull<T> {
-        self.validate_get(self.cast(handle));
+        self.validate_get(Self::cast(handle));
         self.1.get::<T>(handle.handle)
     }
 
-    fn cast<T: ?Sized + Pointee, U>(&self, handle: Self::Handle<T>) -> Self::Handle<U> {
-        handle.map(|h| self.1.cast::<T, U>(h))
+    fn cast<T: ?Sized + Pointee, U>(handle: Self::Handle<T>) -> Self::Handle<U> {
+        handle.map(|h| S::cast::<T, U>(h))
     }
 
     fn cast_unsized<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(
-        &self,
         handle: Self::Handle<T>,
     ) -> Self::Handle<U> {
-        handle.map(|h| self.1.cast_unsized::<T, U>(h))
+        handle.map(|h| S::cast_unsized::<T, U>(h))
     }
 
     #[cfg(feature = "unsize")]
-    unsafe fn coerce<T: ?Sized + Pointee + Unsize<U>, U: ?Sized + Pointee>(
-        &self,
+    fn coerce<T: ?Sized + Pointee + Unsize<U>, U: ?Sized + Pointee>(
         handle: Self::Handle<T>,
     ) -> Self::Handle<U> {
-        handle.map(|h| self.1.coerce::<T, U>(h))
+        handle.map(|h| S::coerce::<T, U>(h))
     }
 
     fn allocate_single<T: ?Sized + Pointee>(
@@ -137,12 +135,12 @@ where
         meta: T::Metadata,
     ) -> crate::error::Result<Self::Handle<T>> {
         let handle = self.1.allocate_single::<T>(meta)?;
-        let id = self.validate_alloc(true, self.1.cast(handle));
+        let id = self.validate_alloc(true, S::cast(handle));
         Ok(DebugHandle { id, handle })
     }
 
     unsafe fn deallocate_single<T: ?Sized>(&mut self, handle: Self::Handle<T>) {
-        self.validate_dealloc(true, self.cast(handle));
+        self.validate_dealloc(true, Self::cast(handle));
         self.1.deallocate_single::<T>(handle.handle)
     }
 
@@ -173,12 +171,12 @@ where
         meta: T::Metadata,
     ) -> crate::error::Result<Self::Handle<T>> {
         let handle = self.1.allocate_single::<T>(meta)?;
-        let id = self.validate_alloc(false, self.1.cast(handle));
+        let id = self.validate_alloc(false, S::cast(handle));
         Ok(DebugHandle { id, handle })
     }
 
     unsafe fn deallocate<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>) {
-        self.validate_dealloc(false, self.cast(handle));
+        self.validate_dealloc(false, Self::cast(handle));
         self.1.deallocate(handle.handle)
     }
 }

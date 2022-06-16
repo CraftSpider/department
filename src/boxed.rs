@@ -225,8 +225,7 @@ where
     where
         T: Unsize<U>,
     {
-        // SAFETY: Our handle is guaranteed valid by internal invariant
-        let handle = unsafe { self.storage.coerce::<_, U>(self.handle) };
+        let handle = S::coerce::<_, U>(self.handle);
         // SAFETY: We consume self, so no one will touch us after this
         let storage = unsafe { ManuallyDrop::take(&mut self.storage) };
         // Don't run drop for the old handle

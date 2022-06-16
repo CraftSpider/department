@@ -166,24 +166,18 @@ pub unsafe trait Storage {
     //       in generic contexts - `Handle::This<U>` can't be related to `Storage::Handle<U>`
 
     /// Convert this handle into any sized type. This is equivalent to [`NonNull::cast`]
-    fn cast<T: ?Sized + Pointee, U>(&self, handle: Self::Handle<T>) -> Self::Handle<U>;
+    fn cast<T: ?Sized + Pointee, U>(handle: Self::Handle<T>) -> Self::Handle<U>;
 
     /// Convert this handle into a different type with the same metadata. This is roughly equivalent
     /// to [`NonNull::from_raw_parts`] with a different type but same metadata.
     fn cast_unsized<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(
-        &self,
         handle: Self::Handle<T>,
     ) -> Self::Handle<U>;
 
     /// Convert unsizing on a handle. This function is a (hopefully) temporary solution until Rust
     /// supports better custom unsizing.
-    ///
-    /// # Safety
-    ///
-    /// The provided handle must be valid. See [`Self::Handle`].
     #[cfg(feature = "unsize")]
-    unsafe fn coerce<T: ?Sized + Pointee + Unsize<U>, U: ?Sized + Pointee>(
-        &self,
+    fn coerce<T: ?Sized + Pointee + Unsize<U>, U: ?Sized + Pointee>(
         handle: Self::Handle<T>,
     ) -> Self::Handle<U>;
 
@@ -240,6 +234,92 @@ pub unsafe trait Storage {
         allocate_single, deallocate_single
     );
 }
+
+// SAFETY: Referenced item promises to fulfill safety guarantees
+unsafe impl<S: Storage> Storage for &mut S {
+    type Handle<T: ?Sized> = S::Handle<T>;
+
+    unsafe fn get<T: ?Sized>(&self, handle: Self::Handle<T>) -> NonNull<T> {
+        S::get(self, handle)
+    }
+
+    fn cast<T: ?Sized + Pointee, U>(handle: Self::Handle<T>) -> Self::Handle<U> {
+        S::cast(handle)
+    }
+
+    fn cast_unsized<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(
+        handle: Self::Handle<T>,
+    ) -> Self::Handle<U> {
+        S::cast_unsized(handle)
+    }
+
+    #[cfg(feature = "unsize")]
+    fn coerce<T: ?Sized + Pointee + Unsize<U>, U: ?Sized + Pointee>(
+        handle: Self::Handle<T>,
+    ) -> Self::Handle<U> {
+        S::coerce(handle)
+    }
+
+    fn allocate_single<T: ?Sized + Pointee>(
+        &mut self,
+        meta: T::Metadata,
+    ) -> error::Result<Self::Handle<T>> {
+        S::allocate_single(self, meta)
+    }
+
+    unsafe fn deallocate_single<T: ?Sized>(&mut self, handle: Self::Handle<T>) {
+        S::deallocate_single(self, handle)
+    }
+
+    unsafe fn try_grow<T>(
+        &mut self,
+        handle: Self::Handle<[T]>,
+        capacity: usize,
+    ) -> error::Result<Self::Handle<[T]>> {
+        S::try_grow(self, handle, capacity)
+    }
+
+    unsafe fn try_shrink<T>(
+        &mut self,
+        handle: Self::Handle<[T]>,
+        capacity: usize,
+    ) -> error::Result<Self::Handle<[T]>> {
+        S::try_shrink(self, handle, capacity)
+    }
+}
+
+// SAFETY: Referenced item promises to fulfill safety guarantees
+unsafe impl<S> MultiItemStorage for &mut S
+where
+    S: MultiItemStorage,
+{
+    fn allocate<T: ?Sized + Pointee>(
+        &mut self,
+        meta: T::Metadata,
+    ) -> error::Result<Self::Handle<T>> {
+        S::allocate(self, meta)
+    }
+
+    unsafe fn deallocate<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>) {
+        S::deallocate(self, handle)
+    }
+}
+
+impl<S> ExactSizeStorage for &mut S
+where
+    S: ExactSizeStorage,
+{
+    fn will_fit<T: ?Sized + Pointee>(&self, meta: T::Metadata) -> bool {
+        S::will_fit::<T>(self, meta)
+    }
+
+    fn max_range<T>(&self) -> usize {
+        S::max_range::<T>(self)
+    }
+}
+
+// SAFETY: Referenced item promises to fulfill safety guarantees
+unsafe impl<S> LeaksafeStorage for &mut S where S: LeaksafeStorage {}
 
 /// An extension to [`Storage`] for storages that can store multiple distinct items at once
 ///

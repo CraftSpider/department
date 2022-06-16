@@ -59,33 +59,27 @@ where
         }
     }
 
-    fn cast<T: ?Sized + Pointee, U>(&self, handle: Self::Handle<T>) -> Self::Handle<U> {
+    fn cast<T: ?Sized + Pointee, U>(handle: Self::Handle<T>) -> Self::Handle<U> {
         match handle {
-            FallbackHandle::First(handle) => FallbackHandle::First(self.first.cast(handle)),
-            FallbackHandle::Second(handle) => FallbackHandle::Second(self.second.cast(handle)),
+            FallbackHandle::First(handle) => FallbackHandle::First(S1::cast(handle)),
+            FallbackHandle::Second(handle) => FallbackHandle::Second(S2::cast(handle)),
         }
     }
 
     fn cast_unsized<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(
-        &self,
         handle: Self::Handle<T>,
     ) -> Self::Handle<U> {
         match handle {
-            FallbackHandle::First(handle) => FallbackHandle::First(self.first.cast_unsized(handle)),
-            FallbackHandle::Second(handle) => {
-                FallbackHandle::Second(self.second.cast_unsized(handle))
-            }
+            FallbackHandle::First(handle) => FallbackHandle::First(S1::cast_unsized(handle)),
+            FallbackHandle::Second(handle) => FallbackHandle::Second(S2::cast_unsized(handle)),
         }
     }
 
     #[cfg(feature = "unsize")]
-    unsafe fn coerce<T: ?Sized + Unsize<U>, U: ?Sized>(
-        &self,
-        handle: Self::Handle<T>,
-    ) -> Self::Handle<U> {
+    fn coerce<T: ?Sized + Unsize<U>, U: ?Sized>(handle: Self::Handle<T>) -> Self::Handle<U> {
         match handle {
-            FallbackHandle::First(handle) => FallbackHandle::First(self.first.coerce(handle)),
-            FallbackHandle::Second(handle) => FallbackHandle::Second(self.second.coerce(handle)),
+            FallbackHandle::First(handle) => FallbackHandle::First(S1::coerce(handle)),
+            FallbackHandle::Second(handle) => FallbackHandle::Second(S2::coerce(handle)),
         }
     }
 

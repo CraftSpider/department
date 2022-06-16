@@ -6,9 +6,142 @@
 use core::fmt;
 #[cfg(feature = "unsize")]
 use core::marker::Unsize;
-#[cfg(feature = "unsize")]
 use core::ptr;
-use core::ptr::Pointee;
+use core::ptr::{NonNull, Pointee};
+
+/// Abstraction over common handle operations on a handle with type `T`
+pub trait Handle<T: ?Sized + Pointee> {
+    /// The type of address for this handle. This is only [`PartialOrd`] instead of [`Ord`] because
+    /// some handles may not be strictly greater or lesser than others (See `FallbackStorage`)
+    type Addr: Copy + Eq + PartialOrd;
+
+    /// The type of this handle, with a different type in place of `T`
+    type This<U: ?Sized>;
+
+    /// Address of this handle. The exact meaning of 'address' may vary between handles, handles
+    /// to different items may have the same address
+    fn addr(self) -> Self::Addr;
+
+    /// Metadata of `T` associated with this handle
+    fn metadata(self) -> T::Metadata;
+
+    /// Convert this handle into one pointing to type `U`, discarding metadata
+    fn cast<U>(self) -> Self::This<U>;
+
+    /// Convert this handle into one pointing to type `U`, preserving metadata
+    fn cast_unsized<U>(self) -> Self::This<U>
+    where
+        U: ?Sized + Pointee<Metadata = T::Metadata>;
+
+    /// Coerce this handle into an unsized type its current type. This is equivalent to invoking
+    /// `CoerceUnsized` via an `as` cast, if it's implemented.
+    #[cfg(feature = "unsize")]
+    fn coerce<U: ?Sized>(self) -> Self::This<U>
+    where
+        T: Unsize<U>;
+}
+
+impl<T: ?Sized + Pointee> Handle<T> for *const T {
+    type Addr = usize;
+
+    type This<U: ?Sized> = *const U;
+
+    fn addr(self) -> usize {
+        self.cast::<()>() as usize
+    }
+
+    fn metadata(self) -> T::Metadata {
+        ptr::metadata(self)
+    }
+
+    fn cast<U>(self) -> Self::This<U> {
+        self.cast()
+    }
+
+    fn cast_unsized<U>(self) -> Self::This<U>
+    where
+        U: ?Sized + Pointee<Metadata = T::Metadata>,
+    {
+        let meta = ptr::metadata(self);
+        ptr::from_raw_parts(self.cast(), meta)
+    }
+
+    #[cfg(feature = "unsize")]
+    fn coerce<U: ?Sized>(self) -> Self::This<U>
+    where
+        T: Unsize<U>,
+    {
+        self as *const U
+    }
+}
+
+impl<T: ?Sized + Pointee> Handle<T> for *mut T {
+    type Addr = usize;
+
+    type This<U: ?Sized> = *mut U;
+
+    fn addr(self) -> usize {
+        self.cast::<()>() as usize
+    }
+
+    fn metadata(self) -> T::Metadata {
+        ptr::metadata(self)
+    }
+
+    fn cast<U>(self) -> Self::This<U> {
+        self.cast()
+    }
+
+    fn cast_unsized<U>(self) -> Self::This<U>
+    where
+        U: ?Sized + Pointee<Metadata = T::Metadata>,
+    {
+        let meta = ptr::metadata(self);
+        ptr::from_raw_parts_mut(self.cast(), meta)
+    }
+
+    #[cfg(feature = "unsize")]
+    fn coerce<U: ?Sized>(self) -> Self::This<U>
+    where
+        T: Unsize<U>,
+    {
+        self as *mut U
+    }
+}
+
+impl<T: ?Sized + Pointee> Handle<T> for NonNull<T> {
+    type Addr = usize;
+
+    type This<U: ?Sized> = NonNull<U>;
+
+    fn addr(self) -> usize {
+        self.cast::<()>().as_ptr() as usize
+    }
+
+    fn metadata(self) -> T::Metadata {
+        ptr::metadata(self.as_ptr())
+    }
+
+    fn cast<U>(self) -> Self::This<U> {
+        self.cast()
+    }
+
+    fn cast_unsized<U>(self) -> Self::This<U>
+    where
+        U: ?Sized + Pointee<Metadata = T::Metadata>,
+    {
+        let meta = ptr::metadata(self.as_ptr());
+        NonNull::from_raw_parts(self.cast(), meta)
+    }
+
+    #[cfg(feature = "unsize")]
+    fn coerce<U: ?Sized>(self) -> Self::This<U>
+    where
+        T: Unsize<U>,
+    {
+        self as NonNull<U>
+    }
+}
 
 // FIXME: Replace with JustMetadata when that merges
 
@@ -54,6 +187,39 @@ impl<T: ?Sized + Pointee> MetaHandle<T> {
         let ptr: *const T = ptr::from_raw_parts(ptr::null(), self.0);
         let meta = ptr::metadata(ptr as *const U);
         MetaHandle(meta)
+    }
+}
+
+impl<T: ?Sized + Pointee> Handle<T> for MetaHandle<T> {
+    type Addr = ();
+
+    type This<U: ?Sized> = MetaHandle<U>;
+
+    fn addr(self) {}
+
+    fn metadata(self) -> T::Metadata {
+        self.0
+    }
+
+    fn cast<U>(self) -> Self::This<U> {
+        MetaHandle::from_metadata(())
+    }
+
+    fn cast_unsized<U>(self) -> Self::This<U>
+    where
+        U: ?Sized + Pointee<Metadata = T::Metadata>,
+    {
+        MetaHandle::from_metadata(self.0)
+    }
+
+    #[cfg(feature = "unsize")]
+    fn coerce<U: ?Sized>(self) -> Self::This<U>
+    where
+        T: Unsize<U>,
+    {
+        let ptr = ptr::from_raw_parts::<T>(ptr::null(), self.0) as *const U;
+        let meta = ptr::metadata(ptr);
+        MetaHandle::from_metadata(meta)
     }
 }
 
@@ -151,6 +317,41 @@ impl<T: ?Sized + Pointee> OffsetMetaHandle<T> {
         let ptr: *const T = ptr::from_raw_parts(ptr::null(), self.1);
         let meta = ptr::metadata(ptr as *const U);
         OffsetMetaHandle(self.0, meta)
+    }
+}
+
+impl<T: ?Sized + Pointee> Handle<T> for OffsetMetaHandle<T> {
+    type Addr = usize;
+
+    type This<U: ?Sized> = OffsetMetaHandle<U>;
+
+    fn addr(self) -> usize {
+        self.0
+    }
+
+    fn metadata(self) -> T::Metadata {
+        self.1
+    }
+
+    fn cast<U>(self) -> Self::This<U> {
+        OffsetMetaHandle::from_offset_meta(self.0, ())
+    }
+
+    fn cast_unsized<U>(self) -> Self::This<U>
+    where
+        U: ?Sized + Pointee<Metadata = T::Metadata>,
+    {
+        OffsetMetaHandle::from_offset_meta(self.0, self.1)
+    }
+
+    #[cfg(feature = "unsize")]
+    fn coerce<U: ?Sized>(self) -> Self::This<U>
+    where
+        T: Unsize<U>,
+    {
+        let ptr = ptr::from_raw_parts::<T>(ptr::null(), self.1) as *const U;
+        let meta = ptr::metadata(ptr);
+        OffsetMetaHandle::from_offset_meta(self.0, meta)
     }
 }
 

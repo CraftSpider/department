@@ -108,8 +108,7 @@ impl<T: ?Sized, S: Storage + ClonesafeStorage> Rc<T, S> {
     where
         T: Unsize<U>,
     {
-        // SAFETY: Our handle is guaranteed valid by internal invariant
-        let handle = unsafe { self.storage.coerce::<_, RcBox<U>>(self.handle) };
+        let handle = S::coerce::<_, RcBox<U>>(self.handle);
         let storage = self.storage.clone();
         // Ensure we don't decrement refcount
         mem::forget(self);

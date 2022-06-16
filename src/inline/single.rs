@@ -37,20 +37,18 @@ where
         NonNull::from_raw_parts(ptr, handle.metadata())
     }
 
-    fn cast<T: ?Sized + Pointee, U>(&self, handle: Self::Handle<T>) -> Self::Handle<U> {
+    fn cast<T: ?Sized + Pointee, U>(handle: Self::Handle<T>) -> Self::Handle<U> {
         handle.cast()
     }
 
     fn cast_unsized<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(
-        &self,
         handle: Self::Handle<T>,
     ) -> Self::Handle<U> {
         handle.cast_unsized()
     }
 
     #[cfg(feature = "unsize")]
-    unsafe fn coerce<T: ?Sized + Pointee + Unsize<U>, U: ?Sized + Pointee>(
-        &self,
+    fn coerce<T: ?Sized + Pointee + Unsize<U>, U: ?Sized + Pointee>(
         handle: Self::Handle<T>,
     ) -> Self::Handle<U> {
         handle.coerce()

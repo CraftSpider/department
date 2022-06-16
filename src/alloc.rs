@@ -55,12 +55,11 @@ unsafe impl<A: Allocator> Storage for Alloc<A> {
         handle
     }
 
-    fn cast<T: ?Sized + Pointee, U>(&self, handle: Self::Handle<T>) -> Self::Handle<U> {
+    fn cast<T: ?Sized + Pointee, U>(handle: Self::Handle<T>) -> Self::Handle<U> {
         handle.cast::<U>()
     }
 
     fn cast_unsized<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(
-        &self,
         handle: Self::Handle<T>,
     ) -> Self::Handle<U> {
         let (ptr, meta) = handle.to_raw_parts();
@@ -68,8 +67,7 @@ unsafe impl<A: Allocator> Storage for Alloc<A> {
     }
 
     #[cfg(feature = "unsize")]
-    unsafe fn coerce<T: ?Sized + Pointee + Unsize<U>, U: ?Sized + Pointee>(
-        &self,
+    fn coerce<T: ?Sized + Pointee + Unsize<U>, U: ?Sized + Pointee>(
         handle: Self::Handle<T>,
     ) -> Self::Handle<U> {
         handle
