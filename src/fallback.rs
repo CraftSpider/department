@@ -6,8 +6,8 @@
 
 #[cfg(feature = "unsize")]
 use core::marker::Unsize;
-use core::ptr::{NonNull, Pointee};
 use core::ptr;
+use core::ptr::{NonNull, Pointee};
 
 use crate::base::{ClonesafeStorage, ExactSizeStorage, LeaksafeStorage, MultiItemStorage, Storage};
 use crate::error;
@@ -138,7 +138,7 @@ where
                 self.first.deallocate_single(handle);
 
                 Ok(FallbackHandle::Second(new_handle))
-            },
+            }
             FallbackHandle::Second(handle) => self
                 .second
                 .try_shrink(handle, capacity)
@@ -295,14 +295,11 @@ mod tests {
     fn test_try_grow_fallback() {
         let mut f = Store::default();
 
-        let h1 = f.allocate_single::<[u16]>(2)
-            .unwrap();
+        let h1 = f.allocate_single::<[u16]>(2).unwrap();
         assert!(matches!(h1, FallbackHandle::First(_)));
-        let h2 = unsafe { f.try_grow(h1, 4) }
-            .unwrap();
+        let h2 = unsafe { f.try_grow(h1, 4) }.unwrap();
         assert!(matches!(h2, FallbackHandle::First(_)));
-        let h3 = unsafe { f.try_grow(h2, 8) }
-            .unwrap();
+        let h3 = unsafe { f.try_grow(h2, 8) }.unwrap();
         assert!(matches!(h3, FallbackHandle::Second(_)));
 
         unsafe { f.deallocate_single(h3) };

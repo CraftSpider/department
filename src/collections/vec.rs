@@ -176,7 +176,13 @@ where
 
         // Move all items after it back one
         // SAFETY: New range is shorter than old, so this can't overrun
-        unsafe { ptr::copy(slice[pos + 1].as_ptr(), slice[pos].as_mut_ptr(), self.len - pos + 1) }
+        unsafe {
+            ptr::copy(
+                slice[pos + 1].as_ptr(),
+                slice[pos].as_mut_ptr(),
+                self.len - pos + 1,
+            )
+        }
 
         // SAFETY: Popped element must be initialized, as length counts initialized items
         unsafe { out.assume_init() }

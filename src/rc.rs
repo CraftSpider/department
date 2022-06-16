@@ -166,9 +166,7 @@ impl<T: ?Sized, S: Storage + ClonesafeStorage> Clone for Rc<T, S> {
     fn clone(&self) -> Self {
         self.inner().inc_strong();
         // SAFETY: Handle is from same storage by internal invariant
-        unsafe {
-            Self::from_inner(self.handle, self.storage.clone())
-        }
+        unsafe { Self::from_inner(self.handle, self.storage.clone()) }
     }
 }
 
@@ -255,9 +253,7 @@ impl<T: ?Sized, S: Storage + ClonesafeStorage> Weak<T, S> {
             inner.inc_strong();
             // SAFETY: Handle is from same storage by internal invariant, and strong count isn't
             //         zero so it's valid
-            unsafe {
-                Some(Rc::from_inner(self.handle, self.storage.clone()))
-            }
+            unsafe { Some(Rc::from_inner(self.handle, self.storage.clone())) }
         }
     }
 }
