@@ -10,6 +10,13 @@ use core::ptr;
 use core::ptr::{NonNull, Pointee};
 
 /// Abstraction over common handle operations on a handle with type `T`
+///
+/// The fact that this supplies casting and metadata-retrieval slightly limits handles - they must
+/// either be able to dereference themselves, or must hold the metadata for a type inline. On the
+/// other hand, even our most restrictive storage does it this way, and implementing always-thin
+/// handles, while theoretically possible, is deemed not worth the limitations. This decision is
+/// open to change before the release of 1.0 - feel free to open an issue if you have a compelling
+/// use-case.
 pub trait Handle<T: ?Sized + Pointee> {
     /// The type of address for this handle. This is only [`PartialOrd`] instead of [`Ord`] because
     /// some handles may not be strictly greater or lesser than others (See `FallbackStorage`)
