@@ -132,6 +132,7 @@ impl<T, S: Storage + ClonesafeStorage> Rc<T, S> {
         let handle = storage
             .create_single(RcBox::new(value))
             .unwrap_or_else(|_| panic!("Couldn't allocate RcBox"));
+        // SAFETY: We just allocated this handle with the provided storage
         unsafe { Self::from_inner(handle, storage) }
     }
 }
@@ -147,11 +148,14 @@ impl<T: ?Sized, S: Storage + ClonesafeStorage> Drop for Rc<T, S> {
     fn drop(&mut self) {
         self.inner().dec_strong();
         if self.inner().strong() == 0 {
+            // SAFETY: This is drop, and strong count is 0, so we're guaranteed last value observer
             unsafe { core::ptr::drop_in_place(&mut self.storage.get(self.handle).as_mut().value) };
 
             self.inner().dec_weak();
 
             if self.inner().weak() == 0 {
+                // SAFETY: This is drop, both strong and weak count are 0, so we're last RcBox
+                //         observer
                 unsafe { self.storage.deallocate_single(self.handle) }
             }
         }
@@ -160,8 +164,9 @@ impl<T: ?Sized, S: Storage + ClonesafeStorage> Drop for Rc<T, S> {
 
 impl<T: ?Sized, S: Storage + ClonesafeStorage> Clone for Rc<T, S> {
     fn clone(&self) -> Self {
+        self.inner().inc_strong();
+        // SAFETY: Handle is from same storage by internal invariant
         unsafe {
-            self.inner().inc_strong();
             Self::from_inner(self.handle, self.storage.clone())
         }
     }
@@ -230,12 +235,13 @@ pub struct Weak<T: ?Sized, S: Storage + ClonesafeStorage> {
 
 impl<T: ?Sized, S: Storage + ClonesafeStorage> Weak<T, S> {
     fn inner(&self) -> Option<WeakInner<'_>> {
-        Some(unsafe {
-            let ptr = self.storage.get(self.handle).as_ptr();
-            WeakInner {
-                strong: &(*ptr).strong,
-                weak: &(*ptr).weak,
-            }
+        // SAFETY: Handle is valid by internal invariant
+        let ptr = unsafe { self.storage.get(self.handle) }.as_ptr();
+        Some(WeakInner {
+            // SAFETY: Pointer is from `get` on valid handle
+            strong: unsafe { &(*ptr).strong },
+            // SAFETY: Pointer is from `get` on valid handle
+            weak: unsafe { &(*ptr).weak },
         })
     }
 
@@ -246,8 +252,10 @@ impl<T: ?Sized, S: Storage + ClonesafeStorage> Weak<T, S> {
         if inner.strong() == 0 {
             None
         } else {
+            inner.inc_strong();
+            // SAFETY: Handle is from same storage by internal invariant, and strong count isn't
+            //         zero so it's valid
             unsafe {
-                inner.inc_strong();
                 Some(Rc::from_inner(self.handle, self.storage.clone()))
             }
         }
@@ -264,6 +272,7 @@ impl<T: ?Sized, S: Storage + ClonesafeStorage> Drop for Weak<T, S> {
 
         inner.dec_weak();
         if inner.weak() == 0 {
+            // SAFETY: Weak count is 0, we're definitely last observer
             unsafe { self.storage.deallocate_single(self.handle) };
         }
     }

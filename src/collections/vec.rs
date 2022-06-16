@@ -166,6 +166,7 @@ where
     pub fn remove(&mut self, pos: usize) -> T {
         self.len -= 1;
 
+        // SAFETY: Handle is valid by internal invariant
         let mut ptr = unsafe { self.storage.get::<[MaybeUninit<T>]>(self.handle) };
 
         // SAFETY: Valid handles are guaranteed to return valid pointers
@@ -174,9 +175,8 @@ where
         let out = mem::replace(item, MaybeUninit::uninit());
 
         // Move all items after it back one
-        for idx in (pos + 1)..self.len {
-            unsafe { ptr::write(&mut slice[idx], ptr::read(&slice[idx + 1])) };
-        }
+        // SAFETY: New range is shorter than old, so this can't overrun
+        unsafe { ptr::copy(slice[pos + 1].as_ptr(), slice[pos].as_mut_ptr(), self.len - pos + 1) }
 
         // SAFETY: Popped element must be initialized, as length counts initialized items
         unsafe { out.assume_init() }

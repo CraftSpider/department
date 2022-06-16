@@ -77,6 +77,7 @@ impl<const N: usize, A: Align> fmt::Debug for Backing<N, A> {
     }
 }
 
+// SAFETY: Backing always uses a `[u8; N]`, which has no padding, and `A` is always a ZST
 unsafe impl<const N: usize, A: Align> StorageSafe for Backing<N, A> {}
 
 #[cfg(test)]

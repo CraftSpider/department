@@ -27,6 +27,7 @@ impl<S, const N: usize> MultiInline<S, N> {
     }
 }
 
+// SAFETY: Internal locks and check ensure memory safety
 unsafe impl<S, const N: usize> Storage for MultiInline<S, N>
 where
     S: StorageSafe,
@@ -104,6 +105,7 @@ where
     }
 }
 
+// SAFETY: Internal locks and checks ensure memory safety
 unsafe impl<S, const N: usize> MultiItemStorage for MultiInline<S, N>
 where
     S: StorageSafe,

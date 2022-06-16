@@ -101,6 +101,7 @@ where
     }
 }
 
+// SAFETY: Debug delegates to another implementor of `Storage` which must uphold the guarantees
 unsafe impl<S> Storage for Debug<S>
 where
     S: Storage,
@@ -162,6 +163,7 @@ where
     }
 }
 
+// SAFETY: Debug delegates to another implementor of `Storage` which must uphold the guarantees
 unsafe impl<S> MultiItemStorage for Debug<S>
 where
     S: MultiItemStorage,
@@ -196,6 +198,7 @@ where
 
 // unsafe impl<S> ClonesafeStorage for Debug<S> where S: ClonesafeStorage {}
 
+// SAFETY: Debug delegates to another implementor of `Storage` which must uphold the guarantees
 unsafe impl<S> LeaksafeStorage for Debug<S> where S: LeaksafeStorage {}
 
 /*unsafe impl<S> FromLeakedStorage for Debug<S>

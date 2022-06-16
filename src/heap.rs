@@ -78,6 +78,7 @@ where
     pub const fn new() -> VirtHeap<S, N> {
         VirtHeap {
             used: spin::Mutex::new([false; N]),
+            // SAFETY: The array contains only `MaybeUninit` values, so this is okay
             storage: UnsafeCell::new(unsafe {
                 MaybeUninit::<[MaybeUninit<S>; N]>::uninit().assume_init()
             }),
@@ -204,6 +205,7 @@ where
     }
 }
 
+// SAFETY: Memory safety is uphold by the internal locks and check
 unsafe impl<S, const N: usize> Storage for &VirtHeap<S, N>
 where
     S: StorageSafe,
@@ -291,6 +293,7 @@ where
     }
 }
 
+// SAFETY: We can hold up to `N` items, internal locks and checks ensure memory safety
 unsafe impl<S, const N: usize> MultiItemStorage for &VirtHeap<S, N>
 where
     S: StorageSafe,
@@ -333,6 +336,8 @@ unsafe impl<S, const N: usize> ClonesafeStorage for &VirtHeap<S, N> where S: Sto
 // SAFETY: Handles returned from a VirtHeap don't move and are valid until deallocated
 unsafe impl<S, const N: usize> LeaksafeStorage for &VirtHeap<S, N> where S: StorageSafe {}
 
+// SAFETY: A pointer leaked from a VirtHeap never got deallocated, so can be turned back into a
+//         handle without issue
 unsafe impl<S, const N: usize> FromLeakedStorage for &VirtHeap<S, N>
 where
     S: StorageSafe,

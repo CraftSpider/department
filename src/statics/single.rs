@@ -20,6 +20,7 @@ impl<S: 'static> StaticStorage<S> for SingleStatic<S> {
     }
 }
 
+// SAFETY: Internal checks ensure memory safety
 unsafe impl<S> Storage for SingleStatic<S>
 where
     S: StorageSafe,

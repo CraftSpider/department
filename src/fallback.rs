@@ -7,6 +7,7 @@
 #[cfg(feature = "unsize")]
 use core::marker::Unsize;
 use core::ptr::{NonNull, Pointee};
+use core::ptr;
 
 use crate::base::{ClonesafeStorage, ExactSizeStorage, LeaksafeStorage, MultiItemStorage, Storage};
 use crate::error;
@@ -43,6 +44,7 @@ where
     }
 }
 
+// SAFETY: Fallback delegates to other impls of storage which must uphold the guarantees
 unsafe impl<S1, S2> Storage for FallbackStorage<S1, S2>
 where
     S1: Storage,
@@ -113,12 +115,30 @@ where
         handle: Self::Handle<[T]>,
         capacity: usize,
     ) -> error::Result<Self::Handle<[T]>> {
-        // TODO: Try to reallocate into second
         match handle {
-            FallbackHandle::First(handle) => self
-                .first
-                .try_grow(handle, capacity)
-                .map(FallbackHandle::First),
+            FallbackHandle::First(handle) => {
+                let res = self
+                    .first
+                    .try_grow(handle, capacity)
+                    .map(FallbackHandle::First);
+
+                if let Ok(handle) = res {
+                    return Ok(handle);
+                }
+
+                let old_ptr = self.first.get(handle);
+                let old_len = ptr::metadata(old_ptr.as_ptr());
+
+                let new_handle = self.second.allocate_single::<[T]>(capacity)?;
+                ptr::copy::<T>(
+                    old_ptr.as_ptr() as *const T,
+                    self.second.get(new_handle).as_ptr().cast::<T>(),
+                    old_len,
+                );
+                self.first.deallocate_single(handle);
+
+                Ok(FallbackHandle::Second(new_handle))
+            },
             FallbackHandle::Second(handle) => self
                 .second
                 .try_shrink(handle, capacity)
@@ -144,6 +164,7 @@ where
     }
 }
 
+// SAFETY: Fallback delegates to other impls of storage which must uphold the guarantees
 unsafe impl<S1, S2> MultiItemStorage for FallbackStorage<S1, S2>
 where
     S1: MultiItemStorage,
@@ -181,6 +202,7 @@ where
     }
 }
 
+// SAFETY: Fallback delegates to other impls of storage which must uphold the guarantees
 unsafe impl<S1, S2> ClonesafeStorage for FallbackStorage<S1, S2>
 where
     S1: ClonesafeStorage,
@@ -188,6 +210,7 @@ where
 {
 }
 
+// SAFETY: Fallback delegates to other impls of storage which must uphold the guarantees
 unsafe impl<S1, S2> LeaksafeStorage for FallbackStorage<S1, S2>
 where
     S1: LeaksafeStorage,
@@ -266,5 +289,22 @@ mod tests {
         assert_eq!(unsafe { f.get(h2).as_ref() }, &[1, 2, 3, 4]);
 
         unsafe { f.drop_single(h2) };
+    }
+
+    #[test]
+    fn test_try_grow_fallback() {
+        let mut f = Store::default();
+
+        let h1 = f.allocate_single::<[u16]>(2)
+            .unwrap();
+        assert!(matches!(h1, FallbackHandle::First(_)));
+        let h2 = unsafe { f.try_grow(h1, 4) }
+            .unwrap();
+        assert!(matches!(h2, FallbackHandle::First(_)));
+        let h3 = unsafe { f.try_grow(h2, 8) }
+            .unwrap();
+        assert!(matches!(h3, FallbackHandle::Second(_)));
+
+        unsafe { f.deallocate_single(h3) };
     }
 }

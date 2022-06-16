@@ -45,8 +45,10 @@ macro_rules! create_drop {
             let meta = ptr::metadata(&value as &[U]);
             let handle = self.$allocate(meta)?;
 
+            // SAFETY: `handle` is valid, as allocate just succeeded
             let pointer: NonNull<[U]> = unsafe { self.get(handle) };
 
+            // SAFETY: `pointer` points to a suitable location for `T` by impl guarantee
             unsafe { ptr::write(pointer.as_ptr().cast(), value) };
 
             Ok(handle)
@@ -61,8 +63,10 @@ macro_rules! create_drop {
             let meta = ptr::metadata(&value as &Dyn);
             let handle = self.$allocate(meta)?;
 
+            // SAFETY: `handle` is valid, as allocate just succeeded
             let pointer: NonNull<Dyn> = unsafe { self.get(handle) };
 
+            // SAFETY: `pointer` points to a suitable location for `T` by impl guarantee
             unsafe { ptr::write(pointer.as_ptr().cast(), value) };
 
             Ok(handle)

@@ -25,6 +25,7 @@ impl<S> SingleInline<S> {
     }
 }
 
+// SAFETY: Internal checks ensure memory safety
 unsafe impl<S> Storage for SingleInline<S>
 where
     S: StorageSafe,

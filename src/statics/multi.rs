@@ -26,6 +26,7 @@ impl<S: 'static, const N: usize> StaticStorage<[S; N]> for MultiStatic<S, N> {
     }
 }
 
+// SAFETY: Internal locks and checks ensure memory safety
 unsafe impl<S, const N: usize> Storage for MultiStatic<S, N>
 where
     S: StorageSafe,
@@ -102,6 +103,7 @@ where
     }
 }
 
+// SAFETY: Internal locks and checks ensure memory safety
 unsafe impl<S, const N: usize> MultiItemStorage for MultiStatic<S, N>
 where
     S: StorageSafe,

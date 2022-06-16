@@ -47,6 +47,7 @@ impl<A: Allocator + Default> Default for Alloc<A> {
     }
 }
 
+// SAFETY: `Allocator` safety requirements are a superset of `Storage` currently
 unsafe impl<A: Allocator> Storage for Alloc<A> {
     type Handle<T: ?Sized + Pointee> = NonNull<T>;
 
@@ -127,6 +128,7 @@ unsafe impl<A: Allocator> Storage for Alloc<A> {
     }
 }
 
+// SAFETY: Rust requires that implementors of `Allocator` are multi-item currently
 unsafe impl<A: Allocator> MultiItemStorage for Alloc<A> {
     fn allocate<T: ?Sized + Pointee>(
         &mut self,
@@ -158,6 +160,7 @@ unsafe impl<A: Allocator + Clone> ClonesafeStorage for Alloc<A> {}
 // SAFETY: Rust requires that implementors of `Allocator` are leak-safe currently
 unsafe impl<A: Allocator> LeaksafeStorage for Alloc<A> {}
 
+// SAFETY: Rust `Allocator` uses a `NonNull` as its handle type, this works trivially
 unsafe impl<A: Allocator + Clone> FromLeakedStorage for Alloc<A> {
     unsafe fn unleak_ptr<T: ?Sized>(&self, leaked: *mut T) -> Self::Handle<T> {
         NonNull::new(leaked).unwrap()

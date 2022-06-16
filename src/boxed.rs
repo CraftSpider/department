@@ -128,10 +128,8 @@ where
         // Don't run drop as we manually deallocated
         mem::forget(self);
 
-        Ok(Box {
-            handle: new_handle,
-            storage: ManuallyDrop::new(new_storage),
-        })
+        // SAFETY: We just created the new storage and handle
+        Ok(unsafe { Box::from_parts(new_storage, new_handle) })
     }
 
     /// Consumes and leaks this box, returning a mutable reference.
@@ -141,8 +139,10 @@ where
     /// to regain ownership of this memory.
     pub fn leak<'a>(this: Self) -> &'a mut T
     where
-        S: LeaksafeStorage,
+        S: 'a + LeaksafeStorage,
     {
+        // SAFETY: `into_raw` is guaranteed to return a pointer valid for any `'a` less than the
+        //         lifetime of the storage
         unsafe { Box::into_raw(this).as_mut() }
     }
 
@@ -155,7 +155,9 @@ where
     where
         S: LeaksafeStorage,
     {
+        // SAFETY: Handle is valid by internal invariant
         let out = unsafe { this.storage.get(this.handle) };
+        // SAFETY: We consume self, so no one will touch us after this
         unsafe {
             ManuallyDrop::drop(&mut this.storage);
         }
@@ -176,10 +178,7 @@ where
     {
         let storage = S::default();
         let handle = storage.unleak_ptr(ptr);
-        Box {
-            handle,
-            storage: ManuallyDrop::new(storage),
-        }
+        Box::from_parts(storage, handle)
     }
 
     /// Construct a box from a raw pointer. After calling this function, the provided pointer
@@ -194,6 +193,25 @@ where
         S: FromLeakedStorage,
     {
         let handle = storage.unleak_ptr(ptr);
+        Box::from_parts(storage, handle)
+    }
+
+    /// Convert this box into its component storage and handle
+    pub fn into_parts(mut self) -> (S, S::Handle<T>) {
+        // SAFETY: We consume self, so no one will touch us after this
+        let storage = unsafe { ManuallyDrop::take(&mut self.storage) };
+        let handle = self.handle;
+        mem::forget(self);
+        (storage, handle)
+    }
+
+    /// Create a box from a component storage and handle
+    ///
+    /// # Safety
+    ///
+    /// This method takes ownership of the provided handle, the storage must be valid to get or
+    /// deallocate the handle.
+    pub unsafe fn from_parts(storage: S, handle: S::Handle<T>) -> Box<T, S> {
         Box {
             handle,
             storage: ManuallyDrop::new(storage),
