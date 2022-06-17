@@ -175,8 +175,8 @@ impl<S, const N: usize> Default for MultiInline<S, N> {
 
 #[cfg(test)]
 mod tests {
-    use crate::backing::{Align8, Backing};
     use super::*;
+    use crate::backing::{Align8, Backing};
     use crate::collections::LinkedList;
 
     #[test]

@@ -159,8 +159,8 @@ impl<S, const N: usize> Drop for MultiStatic<S, N> {
 
 #[cfg(test)]
 mod tests {
-    use crate::backing::{Align8, Backing};
     use super::*;
+    use crate::backing::{Align8, Backing};
     use crate::collections::LinkedList;
 
     #[test]

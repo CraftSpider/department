@@ -1,5 +1,5 @@
-use std::alloc::Layout;
 use crate::base::{MultiItemStorage, Storage};
+use std::alloc::Layout;
 
 type NodeRef<T, S> = <S as Storage>::Handle<Node<T, S>>;
 
@@ -35,16 +35,24 @@ impl<T, S: Storage + MultiItemStorage> LinkedList<T, S> {
         println!("Handle Layout: {:?}", Layout::new::<NodeRef<T, S>>());
         println!("Item Layout: {:?}", Layout::new::<T>());
         println!("Node Layout: {:?}", Layout::new::<Node<T, S>>());
-        let first_node = self.storage.create(Node {
-            next: None,
-            prev: None,
-            value,
-        }).unwrap_or_else(|(err, _)| panic!("Storage Error: {}", err));
+        let first_node = self
+            .storage
+            .create(Node {
+                next: None,
+                prev: None,
+                value,
+            })
+            .unwrap_or_else(|(err, _)| panic!("Storage Error: {}", err));
         let first = self.nodes.insert((first_node, first_node)).0;
         unsafe { self.node_val_mut(first) }
     }
 
-    fn fix_refs(&mut self, prev: Option<NodeRef<T, S>>, new: NodeRef<T, S>, next: Option<NodeRef<T, S>>) {
+    fn fix_refs(
+        &mut self,
+        prev: Option<NodeRef<T, S>>,
+        new: NodeRef<T, S>,
+        next: Option<NodeRef<T, S>>,
+    ) {
         let (first, last) = self.nodes.as_mut().unwrap();
 
         let last_ref = prev.map(|handle| (handle, unsafe { self.storage.get(handle).as_mut() }));
@@ -72,11 +80,14 @@ impl<T, S: Storage + MultiItemStorage> LinkedList<T, S> {
 
         let new_next = node_ref.next;
 
-        let new_node = self.storage.create(Node {
-            next: new_next,
-            prev: Some(node),
-            value,
-        }).unwrap_or_else(|_| panic!());
+        let new_node = self
+            .storage
+            .create(Node {
+                next: new_next,
+                prev: Some(node),
+                value,
+            })
+            .unwrap_or_else(|_| panic!());
 
         self.fix_refs(Some(node), new_node, new_next);
 
