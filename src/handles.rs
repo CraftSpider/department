@@ -189,7 +189,7 @@ impl<T: ?Sized + Pointee> MetaHandle<T> {
     /// Cast this handle to any sized type, similar to [`NonNull::cast`][core::ptr::NonNull]
     #[inline]
     pub const fn cast<U>(self) -> MetaHandle<U> {
-        MetaHandle(())
+        MetaHandle::from_metadata(())
     }
 
     /// Cast this handle to any unsized type with the same metadata as it currently holds
@@ -199,7 +199,7 @@ impl<T: ?Sized + Pointee> MetaHandle<T> {
         T: Pointee<Metadata = <U as Pointee>::Metadata>,
         U: ?Sized,
     {
-        MetaHandle(self.0)
+        MetaHandle::from_metadata(self.metadata())
     }
 
     /// Coerce this handle to a type which unsizes from the current type
@@ -208,9 +208,9 @@ impl<T: ?Sized + Pointee> MetaHandle<T> {
     where
         T: Unsize<U>,
     {
-        let ptr: *const T = ptr::from_raw_parts(ptr::null(), self.0);
+        let ptr: *const T = ptr::from_raw_parts(ptr::null(), self.metadata());
         let meta = ptr::metadata(ptr as *const U);
-        MetaHandle(meta)
+        MetaHandle::from_metadata(meta)
     }
 }
 
@@ -226,7 +226,7 @@ impl<T: ?Sized + Pointee> Handle<T> for MetaHandle<T> {
     fn addr(self) {}
 
     fn metadata(self) -> T::Metadata {
-        self.0
+        MetaHandle::metadata(self)
     }
 
     fn cast<U>(self) -> Self::This<U> {
@@ -237,7 +237,7 @@ impl<T: ?Sized + Pointee> Handle<T> for MetaHandle<T> {
     where
         U: ?Sized + Pointee<Metadata = T::Metadata>,
     {
-        MetaHandle::from_metadata(self.0)
+        MetaHandle::from_metadata(self.metadata())
     }
 
     #[cfg(feature = "unsize")]
@@ -245,7 +245,7 @@ impl<T: ?Sized + Pointee> Handle<T> for MetaHandle<T> {
     where
         T: Unsize<U>,
     {
-        let ptr = ptr::from_raw_parts::<T>(ptr::null(), self.0) as *const U;
+        let ptr = ptr::from_raw_parts::<T>(ptr::null(), self.metadata()) as *const U;
         let meta = ptr::metadata(ptr);
         MetaHandle::from_metadata(meta)
     }
@@ -372,7 +372,7 @@ impl<T: ?Sized + Pointee> Handle<T> for OffsetMetaHandle<T> {
     }
 
     fn metadata(self) -> T::Metadata {
-        self.1
+        OffsetMetaHandle::metadata(self)
     }
 
     fn cast<U>(self) -> Self::This<U> {
