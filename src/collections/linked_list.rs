@@ -1,5 +1,4 @@
 use crate::base::{MultiItemStorage, Storage};
-use std::alloc::Layout;
 
 type NodeRef<T, S> = <S as Storage>::Handle<Node<T, S>>;
 
@@ -9,6 +8,8 @@ struct Node<T, S: Storage> {
     value: T,
 }
 
+/// A linked-list built on a storage. Generally [`Vec`][super::Vec] is more efficient, but this
+/// may be useful in some niche use-cases.
 pub struct LinkedList<T, S: Storage + MultiItemStorage> {
     nodes: Option<(NodeRef<T, S>, NodeRef<T, S>)>,
     len: usize,
@@ -18,23 +19,22 @@ pub struct LinkedList<T, S: Storage + MultiItemStorage> {
 impl<T, S: Storage + MultiItemStorage> LinkedList<T, S> {
     /// # Safety
     ///
-    /// Node ref passed must not have any mutable refs to it currently live
+    /// Node ref passed must not have any mutable refs to it currently live, and be valid
     unsafe fn node_val(&self, node: NodeRef<T, S>) -> &T {
+        // SAFETY: Our safety conditions require this is valid
         unsafe { &self.storage.get(node).as_ref().value }
     }
 
     /// # Safety
     ///
-    /// Node ref passed must not have any other refs to it currently live
-    unsafe fn node_val_mut(&self, node: NodeRef<T, S>) -> &mut T {
+    /// Node ref passed must not have any other refs to it currently live, and be valid
+    unsafe fn node_val_mut(&mut self, node: NodeRef<T, S>) -> &mut T {
+        // SAFETY: Our safety conditions require this is valid
         unsafe { &mut self.storage.get(node).as_mut().value }
     }
 
     fn init_list(&mut self, value: T) -> &mut T {
         assert!(self.nodes.is_none());
-        println!("Handle Layout: {:?}", Layout::new::<NodeRef<T, S>>());
-        println!("Item Layout: {:?}", Layout::new::<T>());
-        println!("Node Layout: {:?}", Layout::new::<Node<T, S>>());
         let first_node = self
             .storage
             .create(Node {
@@ -44,6 +44,7 @@ impl<T, S: Storage + MultiItemStorage> LinkedList<T, S> {
             })
             .unwrap_or_else(|(err, _)| panic!("Storage Error: {}", err));
         let first = self.nodes.insert((first_node, first_node)).0;
+        // SAFETY: We uniquely borrow self, and we just allocated this handle
         unsafe { self.node_val_mut(first) }
     }
 
@@ -55,27 +56,34 @@ impl<T, S: Storage + MultiItemStorage> LinkedList<T, S> {
     ) {
         let (first, last) = self.nodes.as_mut().unwrap();
 
-        let last_ref = prev.map(|handle| (handle, unsafe { self.storage.get(handle).as_mut() }));
-        let next_ref = next.map(|handle| (handle, unsafe { self.storage.get(handle).as_mut() }));
+        let last_ref = prev.map(|handle| {
+            // SAFETY: We uniquely borrow self, no one else should have refs right now
+            (handle, unsafe { self.storage.get(handle).as_mut() })
+        });
+        let next_ref = next.map(|handle| {
+            // SAFETY: We uniquely borrow self, no one else should have refs right now
+            (handle, unsafe { self.storage.get(handle).as_mut() })
+        });
 
-        last_ref.map(|(prev, prev_ref)| {
+        if let Some((prev, prev_ref)) = last_ref {
             prev_ref.next = Some(new);
 
             if prev == *last {
                 *last = new;
             }
-        });
+        };
 
-        next_ref.map(|(next, next_ref)| {
+        if let Some((next, next_ref)) = next_ref {
             next_ref.prev = Some(new);
 
             if next == *first {
                 *first = new;
             }
-        });
+        };
     }
 
     fn insert_node_after(&mut self, node: NodeRef<T, S>, value: T) -> &mut T {
+        // SAFETY: We uniquely borrow self, no one else should have refs right now
         let node_ref: &mut Node<T, S> = unsafe { self.storage.get(node).as_mut() };
 
         let new_next = node_ref.next;
@@ -87,10 +95,11 @@ impl<T, S: Storage + MultiItemStorage> LinkedList<T, S> {
                 prev: Some(node),
                 value,
             })
-            .unwrap_or_else(|_| panic!());
+            .unwrap_or_else(|(err, _)| panic!("Storage Error: {}", err));
 
         self.fix_refs(Some(node), new_node, new_next);
 
+        // SAFETY: We uniquely borrow self, and we just allocated this node
         unsafe { self.node_val_mut(new_node) }
     }
 
@@ -102,6 +111,7 @@ impl<T, S: Storage + MultiItemStorage> LinkedList<T, S> {
         Some(self.nodes?.1)
     }
 
+    /// Create a new linked-list using the provided storage
     pub fn new_in(storage: S) -> LinkedList<T, S> {
         LinkedList {
             nodes: None,
@@ -110,10 +120,17 @@ impl<T, S: Storage + MultiItemStorage> LinkedList<T, S> {
         }
     }
 
+    /// Get the length of this list
     pub fn len(&self) -> usize {
         self.len
     }
 
+    /// Check whether this list is empty
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
+    /// Add a new item to the end of this list
     pub fn push(&mut self, value: T) -> &mut T {
         self.len += 1;
         match self.last_node() {
@@ -122,24 +139,35 @@ impl<T, S: Storage + MultiItemStorage> LinkedList<T, S> {
         }
     }
 
+    /// Get an item from this list by index, returning None if the index is invalid
     pub fn get(&self, index: usize) -> Option<&T> {
         let mut cur = self.first_node()?;
         for _ in 0..index {
+            // SAFETY: Nodes in our list should all have valid pointers
+            //         we immutably borrow self, so node should be valid to borrow
             cur = unsafe { self.storage.get(cur).as_ref() }.next?;
         }
+        // SAFETY: We immutable borrow self, and we got this node from our internal list
         Some(unsafe { self.node_val(cur) })
     }
 }
 
 impl<T, S: Storage + MultiItemStorage + Default> LinkedList<T, S> {
+    /// Create a new, empty, [`LinkedList`].
     pub fn new() -> LinkedList<T, S> {
         LinkedList::new_in(S::default())
     }
 }
 
+impl<T, S: Storage + MultiItemStorage + Default> Default for LinkedList<T, S> {
+    fn default() -> Self {
+        LinkedList::new()
+    }
+}
+
 impl<T, S: Storage + MultiItemStorage> Drop for LinkedList<T, S> {
     fn drop(&mut self) {
-        let (first, last) = match self.nodes {
+        let (first, _) = match self.nodes {
             Some(nodes) => nodes,
             None => return,
         };
@@ -147,7 +175,10 @@ impl<T, S: Storage + MultiItemStorage> Drop for LinkedList<T, S> {
         let mut cur = first;
 
         loop {
+            // SAFETY: We have unique access and are in drop, no one else should be observing
+            //         nodes, and all internal node refs should be valid
             let next = unsafe { self.storage.get(cur).as_ref() }.next;
+            // SAFETY: All nodes should be valid and initialized, we're last observer
             unsafe { self.storage.drop(cur) };
             match next {
                 Some(next) => cur = next,

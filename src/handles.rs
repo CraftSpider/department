@@ -276,16 +276,23 @@ where
 }
 
 /// A handle containing an offset and some metadata, similar to a pointer but with the offset being
-/// storage-specific instead of an address space
+/// storage-specific instead of an address space. This handle reserves the offset [`usize::MAX`]
+/// to allow niche-optimization.
 pub struct OffsetMetaHandle<T: ?Sized + Pointee>(NonZeroUsize, T::Metadata);
 
 impl<T: ?Sized + Pointee> OffsetMetaHandle<T> {
     /// Create a new instance of this handle from an offset and metadata for the type
+    ///
+    /// # Panics
+    ///
+    /// If offset is equal to `usize::MAX`, due to that being a reserved value
     #[inline]
     pub const fn from_offset_meta(offset: usize, meta: T::Metadata) -> OffsetMetaHandle<T> {
         if offset == usize::MAX {
             panic!("OffsetMetaHandle reserves usize::MAX for niche optimization");
         }
+        // SAFETY: We do `offset + 1`, and offset is not usize::MAX, so the resulting value will
+        //         always be in-bounds and non-zero
         OffsetMetaHandle(unsafe { NonZeroUsize::new_unchecked(offset + 1) }, meta)
     }
 
