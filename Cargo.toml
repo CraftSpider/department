@@ -30,10 +30,11 @@ fallback = []
 debug = ["alloc", "vec"]
 
 # Different collection implementations
-all_collections = ["box", "rc", "vec", "string"]
+all_collections = ["box", "rc", "vec", "linked", "string"]
 box = []
 rc = []
 vec = []
+linked = []
 string = ["vec"]
 
 [dependencies]
