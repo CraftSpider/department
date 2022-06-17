@@ -8,7 +8,7 @@ use core::fmt;
 use core::marker::Unsize;
 use core::ptr;
 use core::ptr::{NonNull, Pointee};
-use std::num::NonZeroUsize;
+use core::num::NonZeroUsize;
 
 /// Abstraction over common handle operations on a handle with type `T`
 ///
