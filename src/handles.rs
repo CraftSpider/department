@@ -6,9 +6,9 @@
 use core::fmt;
 #[cfg(feature = "unsize")]
 use core::marker::Unsize;
+use core::num::NonZeroUsize;
 use core::ptr;
 use core::ptr::{NonNull, Pointee};
-use core::num::NonZeroUsize;
 
 /// Abstraction over common handle operations on a handle with type `T`
 ///

@@ -142,6 +142,8 @@ fn ultra_thin() {
 
     static THIN_BACKING: RwLock<SyncPtr> = RwLock::new(SyncPtr(NonNull::dangling()));
 
+    // This is incredibly likely to cause incorrectness or unsoundness - this implementation is just
+    // here to show off the idea of a ZST box.
     #[derive(Default)]
     struct ThinStorage;
 
