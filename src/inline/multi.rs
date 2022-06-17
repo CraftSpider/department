@@ -8,7 +8,7 @@ use core::{fmt, mem};
 
 use crate::base::{ExactSizeStorage, MultiItemStorage, Storage, StorageSafe};
 use crate::error::StorageError;
-use crate::handles::OffsetMetaHandle;
+use crate::handles::{Handle, OffsetMetaHandle};
 use crate::{error, utils};
 
 /// Inline multi-element storage implementation
@@ -39,6 +39,10 @@ where
             .unwrap()
             .cast();
         NonNull::from_raw_parts(ptr, handle.metadata())
+    }
+
+    fn from_raw_parts<T: ?Sized + Pointee>(handle: Self::Handle<()>, meta: T::Metadata) -> Self::Handle<T> {
+        <Self::Handle<T>>::from_raw_parts(handle, meta)
     }
 
     fn cast<T: ?Sized + Pointee, U>(handle: Self::Handle<T>) -> Self::Handle<U> {

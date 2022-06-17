@@ -38,3 +38,6 @@ string = ["vec"]
 
 [dependencies]
 spin = { version = "0.9", default-features = false, features = ["spin_mutex", "mutex"] }
+
+[dev-dependencies]
+spin = { version = "0.9", default-features = false, features = ["rwlock"] }

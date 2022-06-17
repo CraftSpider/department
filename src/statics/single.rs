@@ -8,7 +8,7 @@ use super::traits::StaticStorage;
 use super::StorageCell;
 use crate::base::{ExactSizeStorage, Storage, StorageSafe};
 use crate::error::{Result, StorageError};
-use crate::handles::MetaHandle;
+use crate::handles::{Handle, MetaHandle};
 use crate::utils;
 
 /// Static single-element storage implementation
@@ -30,6 +30,10 @@ where
     unsafe fn get<T: ?Sized>(&self, handle: Self::Handle<T>) -> NonNull<T> {
         let ptr: NonNull<()> = self.0.as_ptr().cast();
         NonNull::from_raw_parts(ptr, handle.metadata())
+    }
+
+    fn from_raw_parts<T: ?Sized + Pointee>(handle: Self::Handle<()>, meta: T::Metadata) -> Self::Handle<T> {
+        <Self::Handle<T>>::from_raw_parts(handle, meta)
     }
 
     fn cast<T: ?Sized + Pointee, U>(handle: Self::Handle<T>) -> Self::Handle<U> {

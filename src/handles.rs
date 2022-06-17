@@ -26,6 +26,9 @@ pub trait Handle<T: ?Sized + Pointee> {
     /// The type of this handle, with a different type in place of `T`
     type This<U: ?Sized>;
 
+    /// Create this handle from an empty tuple handle and a metadata
+    fn from_raw_parts(handle: Self::This<()>, meta: T::Metadata) -> Self;
+
     /// Address of this handle. The exact meaning of 'address' may vary between handles, handles
     /// to different items may have the same address
     fn addr(self) -> Self::Addr;
@@ -53,6 +56,10 @@ impl<T: ?Sized + Pointee> Handle<T> for *const T {
     type Addr = usize;
 
     type This<U: ?Sized> = *const U;
+
+    fn from_raw_parts(handle: Self::This<()>, meta: T::Metadata) -> Self {
+        ptr::from_raw_parts(handle, meta)
+    }
 
     fn addr(self) -> usize {
         self.cast::<()>() as usize
@@ -88,6 +95,10 @@ impl<T: ?Sized + Pointee> Handle<T> for *mut T {
 
     type This<U: ?Sized> = *mut U;
 
+    fn from_raw_parts(handle: Self::This<()>, meta: T::Metadata) -> Self {
+        ptr::from_raw_parts_mut(handle, meta)
+    }
+
     fn addr(self) -> usize {
         self.cast::<()>() as usize
     }
@@ -121,6 +132,10 @@ impl<T: ?Sized + Pointee> Handle<T> for NonNull<T> {
     type Addr = usize;
 
     type This<U: ?Sized> = NonNull<U>;
+
+    fn from_raw_parts(handle: Self::This<()>, meta: T::Metadata) -> Self {
+        NonNull::from_raw_parts(handle, meta)
+    }
 
     fn addr(self) -> usize {
         self.cast::<()>().as_ptr() as usize
@@ -202,6 +217,10 @@ impl<T: ?Sized + Pointee> Handle<T> for MetaHandle<T> {
     type Addr = ();
 
     type This<U: ?Sized> = MetaHandle<U>;
+
+    fn from_raw_parts(_: Self::This<()>, meta: T::Metadata) -> Self {
+        MetaHandle::from_metadata(meta)
+    }
 
     fn addr(self) {}
 
@@ -332,6 +351,10 @@ impl<T: ?Sized + Pointee> Handle<T> for OffsetMetaHandle<T> {
     type Addr = usize;
 
     type This<U: ?Sized> = OffsetMetaHandle<U>;
+
+    fn from_raw_parts(handle: Self::This<()>, meta: T::Metadata) -> Self {
+        OffsetMetaHandle::from_offset_meta(handle.offset(), meta)
+    }
 
     fn addr(self) -> usize {
         self.0

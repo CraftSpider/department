@@ -161,9 +161,12 @@ pub unsafe trait Storage {
     /// Specific implementations *may* loosen these requirements.
     unsafe fn get<T: ?Sized>(&self, handle: Self::Handle<T>) -> NonNull<T>;
 
-    // TODO: The three below should really be implemented on the handles, however,
+    // TODO: The four below should really be implemented on the handles, however,
     //       there's currently no clean to express the correct bounds to allow this to work
     //       in generic contexts - `Handle::This<U>` can't be related to `Storage::Handle<U>`
+
+    /// Create a handle from a handle pointing to `()` and a metadata
+    fn from_raw_parts<T: ?Sized + Pointee>(handle: Self::Handle<()>, meta: T::Metadata) -> Self::Handle<T>;
 
     /// Convert this handle into any sized type. This is equivalent to [`NonNull::cast`]
     fn cast<T: ?Sized + Pointee, U>(handle: Self::Handle<T>) -> Self::Handle<U>;
@@ -241,6 +244,10 @@ unsafe impl<S: Storage> Storage for &mut S {
 
     unsafe fn get<T: ?Sized>(&self, handle: Self::Handle<T>) -> NonNull<T> {
         S::get(self, handle)
+    }
+
+    fn from_raw_parts<T: ?Sized + Pointee>(handle: Self::Handle<()>, meta: T::Metadata) -> Self::Handle<T> {
+        S::from_raw_parts(handle, meta)
     }
 
     fn cast<T: ?Sized + Pointee, U>(handle: Self::Handle<T>) -> Self::Handle<U> {

@@ -46,6 +46,7 @@ use crate::base::{
     Storage, StorageSafe,
 };
 use crate::error::{Result, StorageError};
+use crate::handles::{Handle, OffsetMetaHandle};
 use crate::utils;
 
 /// Given a size, determine how many blocks are required to fit it
@@ -220,6 +221,10 @@ where
         NonNull::from_raw_parts(ptr, handle.metadata())
     }
 
+    fn from_raw_parts<T: ?Sized + Pointee>(handle: Self::Handle<()>, meta: T::Metadata) -> Self::Handle<T> {
+        <Self::Handle<T>>::from_raw_parts(handle, meta)
+    }
+
     fn cast<T: ?Sized + Pointee, U>(handle: Self::Handle<T>) -> Self::Handle<U> {
         handle.cast()
     }
@@ -358,8 +363,6 @@ where
 unsafe impl<S: Send + StorageSafe, const N: usize> Send for VirtHeap<S, N> {}
 // SAFETY: This type only accesses the inner cell when atomically claimed
 unsafe impl<S: Sync + StorageSafe, const N: usize> Sync for VirtHeap<S, N> {}
-
-use crate::handles::OffsetMetaHandle;
 
 #[cfg(test)]
 mod tests {

@@ -7,7 +7,7 @@ use core::ptr::{NonNull, Pointee};
 use super::StorageCell;
 use crate::base::{ExactSizeStorage, MultiItemStorage, Storage, StorageSafe};
 use crate::error::{Result, StorageError};
-use crate::handles::OffsetMetaHandle;
+use crate::handles::{Handle, OffsetMetaHandle};
 use crate::statics::traits::StaticStorage;
 use crate::utils;
 
@@ -37,6 +37,10 @@ where
         let idx = core::ptr::addr_of_mut!((*self.storage.as_ptr().as_ptr())[handle.offset()]);
         let ptr: NonNull<()> = NonNull::new(idx).unwrap().cast();
         NonNull::from_raw_parts(ptr, handle.metadata())
+    }
+
+    fn from_raw_parts<T: ?Sized + Pointee>(handle: Self::Handle<()>, meta: T::Metadata) -> Self::Handle<T> {
+        <Self::Handle<T>>::from_raw_parts(handle, meta)
     }
 
     fn cast<T: ?Sized + Pointee, U>(handle: Self::Handle<T>) -> Self::Handle<U> {
