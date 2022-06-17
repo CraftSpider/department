@@ -113,7 +113,10 @@ where
         self.1.get::<T>(handle.handle)
     }
 
-    fn from_raw_parts<T: ?Sized + Pointee>(handle: Self::Handle<()>, meta: T::Metadata) -> Self::Handle<T> {
+    fn from_raw_parts<T: ?Sized + Pointee>(
+        handle: Self::Handle<()>,
+        meta: T::Metadata,
+    ) -> Self::Handle<T> {
         handle.map(|h| S::from_raw_parts(h, meta))
     }
 

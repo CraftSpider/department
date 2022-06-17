@@ -2,18 +2,18 @@
 #![feature(generic_associated_types)]
 #![feature(layout_for_ptr)]
 
-use std::alloc::Layout;
-use std::fmt::{Debug, Formatter};
-use std::marker::{PhantomData, Unsize};
-use std::ops::Deref;
-use std::{mem, ptr};
-use std::ptr::{NonNull, Pointee};
-use spin::RwLock;
 use department::alloc::GlobalAlloc;
 use department::backing::{Align4, Align8, Backing};
 use department::base::Storage;
 use department::handles::{Handle, MetaHandle};
 use department::inline::SingleInline;
+use spin::RwLock;
+use std::alloc::Layout;
+use std::fmt::{Debug, Formatter};
+use std::marker::{PhantomData, Unsize};
+use std::ops::Deref;
+use std::ptr::{NonNull, Pointee};
+use std::{mem, ptr};
 
 pub(crate) fn layout_of<T: ?Sized + Pointee>(meta: T::Metadata) -> Layout {
     let pointer = ptr::from_raw_parts(ptr::null(), meta);
@@ -47,10 +47,12 @@ impl<T: ?Sized, S: Storage + Default> ThinBox<T, S> {
 
         let mut storage = S::default();
 
-        let handle = storage.allocate_single::<ThinInner<<T as Pointee>::Metadata, U>>(())
+        let handle = storage
+            .allocate_single::<ThinInner<<T as Pointee>::Metadata, U>>(())
             .unwrap();
 
-        let inner_ptr: NonNull<ThinInner<<T as Pointee>::Metadata, U>> = unsafe { storage.get(handle) };
+        let inner_ptr: NonNull<ThinInner<<T as Pointee>::Metadata, U>> =
+            unsafe { storage.get(handle) };
 
         unsafe {
             (*inner_ptr.as_ptr()).meta = meta;
@@ -68,8 +70,7 @@ impl<T: ?Sized, S: Storage + Default> ThinBox<T, S> {
 impl<T, S: Storage + Default> ThinBox<T, S> {
     pub fn new(value: T) -> Self {
         let mut storage = S::default();
-        let handle = storage.allocate_single::<ThinInner<(), T>>(())
-            .unwrap();
+        let handle = storage.allocate_single::<ThinInner<(), T>>(()).unwrap();
         let ptr = unsafe { storage.get(handle) };
         unsafe { (*ptr.as_ptr()).value = value };
         ThinBox {
@@ -105,7 +106,12 @@ impl<T: ?Sized, S: Storage> Drop for ThinBox<T, S> {
             meta2: <ThinInner<<T as Pointee>::Metadata, T> as Pointee>::Metadata,
         }
 
-        let meta = unsafe { MetaCaster::<T> { meta: self.metadata() }.meta2 };
+        let meta = unsafe {
+            MetaCaster::<T> {
+                meta: self.metadata(),
+            }
+            .meta2
+        };
         let handle = S::from_raw_parts::<ThinInner<<T as Pointee>::Metadata, T>>(self.handle, meta);
         unsafe { self.storage.drop_single(handle) }
     }
@@ -122,7 +128,9 @@ fn thin_range() {
 }
 
 fn thin_dyn() {
-    dbg!(ThinBox::<dyn Debug, GlobalAlloc>::unsize_new("Hello World!"));
+    dbg!(ThinBox::<dyn Debug, GlobalAlloc>::unsize_new(
+        "Hello World!"
+    ));
     dbg!(ThinBox::<dyn Debug, SingleInline<Backing<24, Align8>>>::unsize_new("Hello World!"));
 }
 
@@ -144,7 +152,10 @@ fn ultra_thin() {
             NonNull::from_raw_parts(THIN_BACKING.read().0, handle.metadata())
         }
 
-        fn from_raw_parts<T: ?Sized + Pointee>(handle: Self::Handle<()>, meta: T::Metadata) -> Self::Handle<T> {
+        fn from_raw_parts<T: ?Sized + Pointee>(
+            handle: Self::Handle<()>,
+            meta: T::Metadata,
+        ) -> Self::Handle<T> {
             MetaHandle::from_raw_parts(handle, meta)
         }
 
@@ -152,18 +163,25 @@ fn ultra_thin() {
             MetaHandle::cast(handle)
         }
 
-        fn cast_unsized<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata=T::Metadata>>(handle: Self::Handle<T>) -> Self::Handle<U> {
+        fn cast_unsized<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(
+            handle: Self::Handle<T>,
+        ) -> Self::Handle<U> {
             MetaHandle::cast_unsized(handle)
         }
 
-        fn coerce<T: ?Sized + Pointee + Unsize<U>, U: ?Sized + Pointee>(handle: Self::Handle<T>) -> Self::Handle<U> {
+        fn coerce<T: ?Sized + Pointee + Unsize<U>, U: ?Sized + Pointee>(
+            handle: Self::Handle<T>,
+        ) -> Self::Handle<U> {
             MetaHandle::coerce(handle)
         }
 
-        fn allocate_single<T: ?Sized + Pointee>(&mut self, meta: T::Metadata) -> department::error::Result<Self::Handle<T>> {
+        fn allocate_single<T: ?Sized + Pointee>(
+            &mut self,
+            meta: T::Metadata,
+        ) -> department::error::Result<Self::Handle<T>> {
             let layout = layout_of::<T>(meta);
-            THIN_BACKING.write().0 = NonNull::new(unsafe { std::alloc::alloc(layout).cast() })
-                .unwrap();
+            THIN_BACKING.write().0 =
+                NonNull::new(unsafe { std::alloc::alloc(layout).cast() }).unwrap();
             Ok(MetaHandle::from_metadata(meta))
         }
 

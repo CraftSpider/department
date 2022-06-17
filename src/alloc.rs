@@ -55,7 +55,10 @@ unsafe impl<A: Allocator> Storage for Alloc<A> {
         handle
     }
 
-    fn from_raw_parts<T: ?Sized + Pointee>(handle: Self::Handle<()>, meta: T::Metadata) -> Self::Handle<T> {
+    fn from_raw_parts<T: ?Sized + Pointee>(
+        handle: Self::Handle<()>,
+        meta: T::Metadata,
+    ) -> Self::Handle<T> {
         <Self::Handle<T>>::from_raw_parts(handle, meta)
     }
 

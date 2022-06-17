@@ -59,10 +59,17 @@ where
         }
     }
 
-    fn from_raw_parts<T: ?Sized + Pointee>(handle: Self::Handle<()>, meta: T::Metadata) -> Self::Handle<T> {
+    fn from_raw_parts<T: ?Sized + Pointee>(
+        handle: Self::Handle<()>,
+        meta: T::Metadata,
+    ) -> Self::Handle<T> {
         match handle {
-            FallbackHandle::First(handle) => FallbackHandle::First(S1::from_raw_parts(handle, meta)),
-            FallbackHandle::Second(handle) => FallbackHandle::Second(S2::from_raw_parts(handle, meta)),
+            FallbackHandle::First(handle) => {
+                FallbackHandle::First(S1::from_raw_parts(handle, meta))
+            }
+            FallbackHandle::Second(handle) => {
+                FallbackHandle::Second(S2::from_raw_parts(handle, meta))
+            }
         }
     }
 
