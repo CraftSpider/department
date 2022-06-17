@@ -8,6 +8,7 @@ use core::fmt;
 use core::marker::Unsize;
 use core::ptr;
 use core::ptr::{NonNull, Pointee};
+use std::num::NonZeroUsize;
 
 /// Abstraction over common handle operations on a handle with type `T`
 ///
@@ -276,19 +277,22 @@ where
 
 /// A handle containing an offset and some metadata, similar to a pointer but with the offset being
 /// storage-specific instead of an address space
-pub struct OffsetMetaHandle<T: ?Sized + Pointee>(usize, T::Metadata);
+pub struct OffsetMetaHandle<T: ?Sized + Pointee>(NonZeroUsize, T::Metadata);
 
 impl<T: ?Sized + Pointee> OffsetMetaHandle<T> {
     /// Create a new instance of this handle from an offset and metadata for the type
     #[inline]
     pub const fn from_offset_meta(offset: usize, meta: T::Metadata) -> OffsetMetaHandle<T> {
-        OffsetMetaHandle(offset, meta)
+        if offset == usize::MAX {
+            panic!("OffsetMetaHandle reserves usize::MAX for niche optimization");
+        }
+        OffsetMetaHandle(unsafe { NonZeroUsize::new_unchecked(offset + 1) }, meta)
     }
 
     /// Get the offset of this handle
     #[inline]
     pub const fn offset(self) -> usize {
-        self.0
+        self.0.get() - 1
     }
 
     /// Get the metadata contained within this handle
@@ -300,13 +304,13 @@ impl<T: ?Sized + Pointee> OffsetMetaHandle<T> {
     /// Add some usize to the offset. The user must ensure the resulting handle is valid
     #[inline]
     pub const fn add(self, offset: usize) -> OffsetMetaHandle<T> {
-        OffsetMetaHandle::from_offset_meta(self.0 + offset, self.1)
+        OffsetMetaHandle::from_offset_meta(self.offset() + offset, self.metadata())
     }
 
     /// Subtract some usize from the offset. The user must ensure the resulting handle is valid
     #[inline]
     pub const fn sub(self, offset: usize) -> OffsetMetaHandle<T> {
-        OffsetMetaHandle::from_offset_meta(self.0 - offset, self.1)
+        OffsetMetaHandle::from_offset_meta(self.offset() - offset, self.metadata())
     }
 
     /// Change the offset of this handle by some value. The user must ensure the resulting handle is
@@ -322,7 +326,7 @@ impl<T: ?Sized + Pointee> OffsetMetaHandle<T> {
     /// Cast this handle to any sized type, similar to [`NonNull::cast`][core::ptr::NonNull]
     #[inline]
     pub const fn cast<U>(self) -> OffsetMetaHandle<U> {
-        OffsetMetaHandle::from_offset_meta(self.0, ())
+        OffsetMetaHandle::from_offset_meta(self.offset(), ())
     }
 
     /// Cast this handle to any unsized type with the same metadata as it currently holds
@@ -332,7 +336,7 @@ impl<T: ?Sized + Pointee> OffsetMetaHandle<T> {
         T: Pointee<Metadata = <U as Pointee>::Metadata>,
         U: ?Sized,
     {
-        OffsetMetaHandle::from_offset_meta(self.0, self.1)
+        OffsetMetaHandle::from_offset_meta(self.offset(), self.metadata())
     }
 
     /// Coerce this handle to a type which unsizes from the current type
@@ -341,7 +345,7 @@ impl<T: ?Sized + Pointee> OffsetMetaHandle<T> {
     where
         T: Unsize<U>,
     {
-        let ptr: *const T = ptr::from_raw_parts(ptr::null(), self.1);
+        let ptr: *const T = ptr::from_raw_parts(ptr::null(), self.metadata());
         let meta = ptr::metadata(ptr as *const U);
         OffsetMetaHandle(self.0, meta)
     }
@@ -357,7 +361,7 @@ impl<T: ?Sized + Pointee> Handle<T> for OffsetMetaHandle<T> {
     }
 
     fn addr(self) -> usize {
-        self.0
+        self.offset()
     }
 
     fn metadata(self) -> T::Metadata {
@@ -365,14 +369,14 @@ impl<T: ?Sized + Pointee> Handle<T> for OffsetMetaHandle<T> {
     }
 
     fn cast<U>(self) -> Self::This<U> {
-        OffsetMetaHandle::from_offset_meta(self.0, ())
+        OffsetMetaHandle::from_offset_meta(self.offset(), ())
     }
 
     fn cast_unsized<U>(self) -> Self::This<U>
     where
         U: ?Sized + Pointee<Metadata = T::Metadata>,
     {
-        OffsetMetaHandle::from_offset_meta(self.0, self.1)
+        OffsetMetaHandle::from_offset_meta(self.offset(), self.metadata())
     }
 
     #[cfg(feature = "unsize")]
@@ -380,9 +384,9 @@ impl<T: ?Sized + Pointee> Handle<T> for OffsetMetaHandle<T> {
     where
         T: Unsize<U>,
     {
-        let ptr = ptr::from_raw_parts::<T>(ptr::null(), self.1) as *const U;
+        let ptr = ptr::from_raw_parts::<T>(ptr::null(), self.metadata()) as *const U;
         let meta = ptr::metadata(ptr);
-        OffsetMetaHandle::from_offset_meta(self.0, meta)
+        OffsetMetaHandle::from_offset_meta(self.offset(), meta)
     }
 }
 
@@ -407,8 +411,8 @@ where
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("OffsetMetaHandle")
-            .field("offset", &self.0)
-            .field("metadata", &self.1)
+            .field("offset", &self.offset())
+            .field("metadata", &self.metadata())
             .finish()
     }
 }

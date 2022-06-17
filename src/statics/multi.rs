@@ -156,3 +156,23 @@ impl<S, const N: usize> Drop for MultiStatic<S, N> {
         self.storage.release()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::backing::{Align8, Backing};
+    use super::*;
+    use crate::collections::LinkedList;
+
+    #[test]
+    fn test_linked_list() {
+        static FOO: StorageCell<[Backing<24, Align8>; 4]> = StorageCell::new([Backing::new(); 4]);
+
+        let mut list = LinkedList::<u8, MultiStatic<Backing<24, Align8>, 4>>::new_in(FOO.claim());
+        list.push(1);
+        list.push(2);
+
+        assert_eq!(list.get(0), Some(&1));
+        assert_eq!(list.get(1), Some(&2));
+        assert_eq!(list.get(3), None);
+    }
+}

@@ -172,3 +172,21 @@ impl<S, const N: usize> Default for MultiInline<S, N> {
         MultiInline::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::backing::{Align8, Backing};
+    use super::*;
+    use crate::collections::LinkedList;
+
+    #[test]
+    fn test_linked_list() {
+        let mut list = LinkedList::<u8, MultiInline<Backing<24, Align8>, 4>>::new();
+        list.push(1);
+        list.push(2);
+
+        assert_eq!(list.get(0), Some(&1));
+        assert_eq!(list.get(1), Some(&2));
+        assert_eq!(list.get(3), None);
+    }
+}

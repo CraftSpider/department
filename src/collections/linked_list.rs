@@ -1,3 +1,4 @@
+use std::alloc::Layout;
 use crate::base::{MultiItemStorage, Storage};
 
 type NodeRef<T, S> = <S as Storage>::Handle<Node<T, S>>;
@@ -31,11 +32,14 @@ impl<T, S: Storage + MultiItemStorage> LinkedList<T, S> {
 
     fn init_list(&mut self, value: T) -> &mut T {
         assert!(self.nodes.is_none());
+        println!("Handle Layout: {:?}", Layout::new::<NodeRef<T, S>>());
+        println!("Item Layout: {:?}", Layout::new::<T>());
+        println!("Node Layout: {:?}", Layout::new::<Node<T, S>>());
         let first_node = self.storage.create(Node {
             next: None,
             prev: None,
             value,
-        }).unwrap_or_else(|_| panic!());
+        }).unwrap_or_else(|(err, _)| panic!("Storage Error: {}", err));
         let first = self.nodes.insert((first_node, first_node)).0;
         unsafe { self.node_val_mut(first) }
     }
