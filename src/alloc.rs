@@ -88,7 +88,8 @@ unsafe impl<A: Allocator> Storage for Alloc<A> {
     }
 
     unsafe fn deallocate_single<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>) {
-        <Self as MultiItemStorage>::deallocate(self, handle)
+        // SAFETY: Shares our safety requirements
+        unsafe { <Self as MultiItemStorage>::deallocate(self, handle) }
     }
 
     unsafe fn try_grow<T>(
@@ -96,19 +97,22 @@ unsafe impl<A: Allocator> Storage for Alloc<A> {
         handle: Self::Handle<[T]>,
         capacity: usize,
     ) -> error::Result<Self::Handle<[T]>> {
-        let old_len = handle.as_ref().len();
+        let old_len = handle.to_raw_parts().1;
 
         let old_layout = Layout::array::<T>(old_len).expect("Valid handle");
         let new_layout = Layout::array::<T>(capacity).map_err(|_| StorageError::exceeds_max())?;
 
-        let new_ptr = self
-            .0
-            .grow(handle.cast(), old_layout, new_layout)
-            // This may actually be unimplemented or other, but we're making an educated guess
-            .map_err(|_| StorageError::InsufficientSpace {
-                expected: new_layout.size(),
-                available: None,
-            })?;
+        // SAFETY: Our safety requirements are at least as specific as `grow`, and layouts are
+        //         generated to match
+        let new_ptr = unsafe {
+            self.0
+                .grow(handle.cast(), old_layout, new_layout)
+                // This may actually be unimplemented or other, but we're making an educated guess
+                .map_err(|_| StorageError::InsufficientSpace {
+                    expected: new_layout.size(),
+                    available: None,
+                })?
+        };
 
         Ok(NonNull::from_raw_parts(new_ptr.cast(), capacity))
     }
@@ -118,16 +122,19 @@ unsafe impl<A: Allocator> Storage for Alloc<A> {
         handle: Self::Handle<[T]>,
         capacity: usize,
     ) -> error::Result<Self::Handle<[T]>> {
-        let old_len = handle.as_ref().len();
+        let old_len = handle.to_raw_parts().1;
 
         let old_layout = Layout::array::<T>(old_len).expect("Valid handle");
         let new_layout = Layout::array::<T>(capacity).map_err(|_| StorageError::exceeds_max())?;
 
-        let new_ptr = self
-            .0
-            .shrink(handle.cast(), old_layout, new_layout)
-            // Should probably only fail if shrinking isn't supported
-            .map_err(|_| StorageError::Unimplemented)?;
+        // SAFETY: Our safety requirements are at least as specific as `grow`, and layouts are
+        //         generated to match
+        let new_ptr = unsafe {
+            self.0
+                .shrink(handle.cast(), old_layout, new_layout)
+                // Should probably only fail if shrinking isn't supported
+                .map_err(|_| StorageError::Unimplemented)?
+        };
 
         Ok(NonNull::from_raw_parts(new_ptr.cast(), capacity))
     }
@@ -154,8 +161,10 @@ unsafe impl<A: Allocator> MultiItemStorage for Alloc<A> {
     }
 
     unsafe fn deallocate<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>) {
-        let layout = Layout::for_value(handle.as_ref());
-        self.0.deallocate(handle.cast(), layout);
+        // SAFETY: By deallocation's safety requirements, the handle is valid at this point
+        let layout = unsafe { Layout::for_value_raw(handle.as_ptr()) };
+        // SAFETY: Our requirements are at least as strict as `Allocator::deallocate`
+        unsafe { self.0.deallocate(handle.cast(), layout) };
     }
 }
 

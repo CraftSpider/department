@@ -110,7 +110,8 @@ where
 
     unsafe fn get<T: ?Sized>(&self, handle: Self::Handle<T>) -> NonNull<T> {
         self.validate_get(Self::cast(handle));
-        self.1.get::<T>(handle.handle)
+        // SAFETY: Shares our safety requirements
+        unsafe { self.1.get::<T>(handle.handle) }
     }
 
     fn from_raw_parts<T: ?Sized + Pointee>(
@@ -148,7 +149,8 @@ where
 
     unsafe fn deallocate_single<T: ?Sized>(&mut self, handle: Self::Handle<T>) {
         self.validate_dealloc(true, Self::cast(handle));
-        self.1.deallocate_single::<T>(handle.handle)
+        // SAFETY: Shares our safety requirements
+        unsafe { self.1.deallocate_single::<T>(handle.handle) }
     }
 
     unsafe fn try_grow<T>(
@@ -156,7 +158,10 @@ where
         handle: Self::Handle<[T]>,
         capacity: usize,
     ) -> crate::error::Result<Self::Handle<[T]>> {
-        handle.try_map(|h| self.1.try_grow::<T>(h, capacity))
+        handle.try_map(|h| {
+            // SAFETY: Shares our safety requirements
+            unsafe { self.1.try_grow::<T>(h, capacity) }
+        })
     }
 
     unsafe fn try_shrink<T>(
@@ -164,7 +169,10 @@ where
         handle: Self::Handle<[T]>,
         capacity: usize,
     ) -> crate::error::Result<Self::Handle<[T]>> {
-        handle.try_map(|h| self.1.try_shrink::<T>(h, capacity))
+        handle.try_map(|h| {
+            // SAFETY: Shares our safety requirements
+            unsafe { self.1.try_shrink::<T>(h, capacity) }
+        })
     }
 }
 
@@ -184,7 +192,8 @@ where
 
     unsafe fn deallocate<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>) {
         self.validate_dealloc(false, Self::cast(handle));
-        self.1.deallocate(handle.handle)
+        // SAFETY: Shares our safety requirements
+        unsafe { self.1.deallocate(handle.handle) }
     }
 }
 

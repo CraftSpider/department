@@ -73,7 +73,8 @@ where
     }
 
     unsafe fn deallocate_single<T: ?Sized>(&mut self, handle: Self::Handle<T>) {
-        self.deallocate(handle)
+        // SAFETY: Shares our safety requirements
+        unsafe { self.deallocate(handle) }
     }
 
     unsafe fn try_grow<T>(

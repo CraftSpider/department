@@ -215,9 +215,9 @@ where
 
     unsafe fn get<T: ?Sized>(&self, handle: Self::Handle<T>) -> NonNull<T> {
         // SAFETY: We only access slices of the mutex this handle has a lock on
-        let ptr = NonNull::new(ptr::addr_of_mut!((*self.storage.get())[handle.offset()]))
-            .expect("Valid handle")
-            .cast();
+        let slice_ptr = unsafe { ptr::addr_of_mut!((*self.storage.get())[handle.offset()]) };
+        // SAFETY: We retrieved this from an offset on a guaranteed valid pointer
+        let ptr = unsafe { NonNull::new_unchecked(slice_ptr).cast() };
         NonNull::from_raw_parts(ptr, handle.metadata())
     }
 
@@ -253,7 +253,8 @@ where
     }
 
     unsafe fn deallocate_single<T: ?Sized>(&mut self, handle: Self::Handle<T>) {
-        self.deallocate(handle)
+        // SAFETY: Shares our safety requirements
+        unsafe { self.deallocate(handle) }
     }
 
     unsafe fn try_grow<T>(
@@ -312,7 +313,10 @@ where
     }
 
     unsafe fn deallocate<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>) {
-        let layout = Layout::for_value(<Self as Storage>::get(self, handle).as_ref());
+        // SAFETY: By deallocation's safety requirements, the handle is valid at this point
+        let ptr = unsafe { self.get(handle) };
+        // SAFETY: get will return a valid pointer to `T`
+        let layout = unsafe { Layout::for_value_raw(ptr.as_ptr()) };
         let mut used = self.used.lock();
         self.unlock_range(
             &mut used,
@@ -351,12 +355,16 @@ where
     unsafe fn unleak_ptr<T: ?Sized>(&self, leaked: *mut T) -> Self::Handle<T> {
         let meta = ptr::metadata(leaked);
 
-        let offset: usize = leaked
-            .cast::<S>()
-            // We don't need a lock here because we never dereference the pointer
-            .offset_from(self.storage.get() as *const S)
-            .try_into()
-            .unwrap();
+        // We don't need a lock here because we never dereference the pointer
+        // SAFETY: Our safety requirements guarantee the provided pointer was generated
+        //         in-bounds of our backing
+        let offset: usize = unsafe {
+            leaked
+                .cast::<S>()
+                .offset_from(self.storage.get() as *const S)
+                .try_into()
+                .unwrap()
+        };
 
         OffsetMetaHandle::from_offset_meta(offset, meta)
     }

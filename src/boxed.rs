@@ -177,8 +177,10 @@ where
         S: FromLeakedStorage + Default,
     {
         let storage = S::default();
-        let handle = storage.unleak_ptr(ptr);
-        Box::from_parts(storage, handle)
+        // SAFETY: Our safety requirements allow this
+        let handle = unsafe { storage.unleak_ptr(ptr) };
+        // SAFETY: We just created this handle from the same storage as we're passing
+        unsafe { Box::from_parts(storage, handle) }
     }
 
     /// Construct a box from a raw pointer. After calling this function, the provided pointer
@@ -192,8 +194,10 @@ where
     where
         S: FromLeakedStorage,
     {
-        let handle = storage.unleak_ptr(ptr);
-        Box::from_parts(storage, handle)
+        // SAFETY: Our safety requirements allow this
+        let handle = unsafe { storage.unleak_ptr(ptr) };
+        // SAFETY: We just created this handle from the same storage as we're passing
+        unsafe { Box::from_parts(storage, handle) }
     }
 
     /// Convert this box into its component storage and handle

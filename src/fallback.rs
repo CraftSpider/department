@@ -54,8 +54,10 @@ where
 
     unsafe fn get<T: ?Sized>(&self, handle: Self::Handle<T>) -> NonNull<T> {
         match handle {
-            FallbackHandle::First(handle) => self.first.get(handle),
-            FallbackHandle::Second(handle) => self.second.get(handle),
+            // SAFETY: Same safety requirements
+            FallbackHandle::First(handle) => unsafe { self.first.get(handle) },
+            // SAFETY: Same safety requirements
+            FallbackHandle::Second(handle) => unsafe { self.second.get(handle) },
         }
     }
 
@@ -113,8 +115,10 @@ where
 
     unsafe fn deallocate_single<T: ?Sized>(&mut self, handle: Self::Handle<T>) {
         match handle {
-            FallbackHandle::First(handle) => self.first.deallocate_single(handle),
-            FallbackHandle::Second(handle) => self.second.deallocate_single(handle),
+            // SAFETY: Same safety requirements
+            FallbackHandle::First(handle) => unsafe { self.first.deallocate_single(handle) },
+            // SAFETY: Same safety requirements
+            FallbackHandle::Second(handle) => unsafe { self.second.deallocate_single(handle) },
         }
     }
 
@@ -125,32 +129,48 @@ where
     ) -> error::Result<Self::Handle<[T]>> {
         match handle {
             FallbackHandle::First(handle) => {
-                let res = self
-                    .first
-                    .try_grow(handle, capacity)
-                    .map(FallbackHandle::First);
+                // SAFETY: Same safety requirements
+                let res = unsafe {
+                    self
+                        .first
+                        .try_grow(handle, capacity)
+                        .map(FallbackHandle::First)
+                };
 
                 if let Ok(handle) = res {
                     return Ok(handle);
                 }
 
-                let old_ptr = self.first.get(handle);
+                // SAFETY: We require the provided handle is valid
+                let old_ptr = unsafe { self.first.get(handle) };
                 let old_len = ptr::metadata(old_ptr.as_ptr());
 
                 let new_handle = self.second.allocate_single::<[T]>(capacity)?;
-                ptr::copy::<T>(
-                    old_ptr.as_ptr() as *const T,
-                    self.second.get(new_handle).as_ptr().cast::<T>(),
-                    old_len,
-                );
-                self.first.deallocate_single(handle);
+                // SAFETY: We just allocated this handle, it's guaranteed valid
+                let new_ptr = unsafe { self.second.get(new_handle).as_ptr().cast::<T>() };
+
+                // SAFETY: Both provided pointers are valid as they're retrieved from valid `get`
+                //         calls
+                unsafe {
+                    ptr::copy::<T>(
+                        old_ptr.as_ptr() as *const T,
+                        new_ptr,
+                        old_len,
+                    );
+                }
+
+                // SAFETY: We require the provided handle is valid, so it's safe to deallocate
+                unsafe { self.first.deallocate_single(handle) };
 
                 Ok(FallbackHandle::Second(new_handle))
             }
-            FallbackHandle::Second(handle) => self
-                .second
-                .try_shrink(handle, capacity)
-                .map(FallbackHandle::Second),
+            // SAFETY: Same safety requirements
+            FallbackHandle::Second(handle) => unsafe {
+                self
+                    .second
+                    .try_shrink(handle, capacity)
+                    .map(FallbackHandle::Second)
+            },
         }
     }
 
@@ -160,14 +180,20 @@ where
         capacity: usize,
     ) -> error::Result<Self::Handle<[T]>> {
         match handle {
-            FallbackHandle::First(handle) => self
-                .first
-                .try_shrink(handle, capacity)
-                .map(FallbackHandle::First),
-            FallbackHandle::Second(handle) => self
-                .second
-                .try_shrink(handle, capacity)
-                .map(FallbackHandle::Second),
+            // SAFETY: Same safety requirements
+            FallbackHandle::First(handle) => unsafe {
+                self
+                    .first
+                    .try_shrink(handle, capacity)
+                    .map(FallbackHandle::First)
+            },
+            // SAFETY: Same safety requirements
+            FallbackHandle::Second(handle) => unsafe {
+                self
+                    .second
+                    .try_shrink(handle, capacity)
+                    .map(FallbackHandle::Second)
+            },
         }
     }
 }
@@ -190,8 +216,10 @@ where
 
     unsafe fn deallocate<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>) {
         match handle {
-            FallbackHandle::First(handle) => self.first.deallocate(handle),
-            FallbackHandle::Second(handle) => self.second.deallocate(handle),
+            // SAFETY: Same safety requirements
+            FallbackHandle::First(handle) => unsafe { self.first.deallocate(handle) },
+            // SAFETY: Same safety requirements
+            FallbackHandle::Second(handle) => unsafe { self.second.deallocate(handle) },
         }
     }
 }

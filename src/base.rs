@@ -80,12 +80,13 @@ macro_rules! create_drop {
         /// the requirement that the handle must contain a valid instance of `T`.
         unsafe fn $drop<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>) {
             // SAFETY: `handle` is valid by safety requirements.
-            let element = self.get(handle);
+            let element = unsafe { self.get(handle) };
 
             // SAFETY: `element` is valid by safety requirements.
-            ptr::drop_in_place(element.as_ptr());
+            unsafe { ptr::drop_in_place(element.as_ptr()) };
 
-            self.$deallocate(handle);
+            // SAFETY: `handle` is valid to deallocate by safety requirements
+            unsafe { self.$deallocate(handle) };
         }
     };
 }
@@ -246,7 +247,8 @@ unsafe impl<S: Storage> Storage for &mut S {
     type Handle<T: ?Sized> = S::Handle<T>;
 
     unsafe fn get<T: ?Sized>(&self, handle: Self::Handle<T>) -> NonNull<T> {
-        S::get(self, handle)
+        // SAFETY: Same safety requirements
+        unsafe { S::get(self, handle) }
     }
 
     fn from_raw_parts<T: ?Sized + Pointee>(
@@ -281,7 +283,8 @@ unsafe impl<S: Storage> Storage for &mut S {
     }
 
     unsafe fn deallocate_single<T: ?Sized>(&mut self, handle: Self::Handle<T>) {
-        S::deallocate_single(self, handle)
+        // SAFETY: Same safety requirements
+        unsafe { S::deallocate_single(self, handle) }
     }
 
     unsafe fn try_grow<T>(
@@ -289,7 +292,8 @@ unsafe impl<S: Storage> Storage for &mut S {
         handle: Self::Handle<[T]>,
         capacity: usize,
     ) -> error::Result<Self::Handle<[T]>> {
-        S::try_grow(self, handle, capacity)
+        // SAFETY: Same safety requirements
+        unsafe { S::try_grow(self, handle, capacity) }
     }
 
     unsafe fn try_shrink<T>(
@@ -297,7 +301,8 @@ unsafe impl<S: Storage> Storage for &mut S {
         handle: Self::Handle<[T]>,
         capacity: usize,
     ) -> error::Result<Self::Handle<[T]>> {
-        S::try_shrink(self, handle, capacity)
+        // SAFETY: Same safety requirements
+        unsafe { S::try_shrink(self, handle, capacity) }
     }
 }
 
@@ -314,7 +319,8 @@ where
     }
 
     unsafe fn deallocate<T: ?Sized + Pointee>(&mut self, handle: Self::Handle<T>) {
-        S::deallocate(self, handle)
+        // SAFETY: Same safety requirements
+        unsafe { S::deallocate(self, handle) }
     }
 }
 

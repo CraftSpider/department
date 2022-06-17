@@ -70,7 +70,7 @@ impl<S> StorageCell<S> {
             "Cell accessed while not claimed"
         );
         // SAFETY: UnsafeCell should never return a null pointer
-        NonNull::new_unchecked(self.0.get())
+        unsafe { NonNull::new_unchecked(self.0.get()) }
     }
 }
 

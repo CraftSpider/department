@@ -34,7 +34,10 @@ where
     type Handle<T: ?Sized> = OffsetMetaHandle<T>;
 
     unsafe fn get<T: ?Sized>(&self, handle: Self::Handle<T>) -> NonNull<T> {
-        let idx = core::ptr::addr_of_mut!((*self.storage.as_ptr().as_ptr())[handle.offset()]);
+        // SAFETY: The inner Cell must be claimed as that's the only way to construct a SingleStatic
+        let store_ptr = unsafe { self.storage.as_ptr() };
+        // SAFETY: The storage pointer is guaranteed valid to dereference
+        let idx = unsafe { core::ptr::addr_of_mut!((*store_ptr.as_ptr())[handle.offset()]) };
         let ptr: NonNull<()> = NonNull::new(idx).unwrap().cast();
         NonNull::from_raw_parts(ptr, handle.metadata())
     }
@@ -71,7 +74,8 @@ where
     }
 
     unsafe fn deallocate_single<T: ?Sized>(&mut self, handle: Self::Handle<T>) {
-        self.deallocate(handle)
+        // SAFETY: Shares our safety requirements
+        unsafe { self.deallocate(handle) }
     }
 
     unsafe fn try_grow<T>(

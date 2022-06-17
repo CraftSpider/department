@@ -28,7 +28,8 @@ where
     type Handle<T: ?Sized> = MetaHandle<T>;
 
     unsafe fn get<T: ?Sized>(&self, handle: Self::Handle<T>) -> NonNull<T> {
-        let ptr: NonNull<()> = self.0.as_ptr().cast();
+        // SAFETY: The inner Cell must be claimed as that's the only way to construct a SingleStatic
+        let ptr: NonNull<()> = unsafe { self.0.as_ptr().cast() };
         NonNull::from_raw_parts(ptr, handle.metadata())
     }
 

@@ -19,6 +19,7 @@
     semicolon_in_expressions_from_macros,
     unused_import_braces,
     unused_lifetimes,
+    unsafe_op_in_unsafe_fn,
     clippy::cargo,
     clippy::missing_panics_doc,
     clippy::doc_markdown,
