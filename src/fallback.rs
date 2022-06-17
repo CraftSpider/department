@@ -131,8 +131,7 @@ where
             FallbackHandle::First(handle) => {
                 // SAFETY: Same safety requirements
                 let res = unsafe {
-                    self
-                        .first
+                    self.first
                         .try_grow(handle, capacity)
                         .map(FallbackHandle::First)
                 };
@@ -152,11 +151,7 @@ where
                 // SAFETY: Both provided pointers are valid as they're retrieved from valid `get`
                 //         calls
                 unsafe {
-                    ptr::copy::<T>(
-                        old_ptr.as_ptr() as *const T,
-                        new_ptr,
-                        old_len,
-                    );
+                    ptr::copy::<T>(old_ptr.as_ptr() as *const T, new_ptr, old_len);
                 }
 
                 // SAFETY: We require the provided handle is valid, so it's safe to deallocate
@@ -166,8 +161,7 @@ where
             }
             // SAFETY: Same safety requirements
             FallbackHandle::Second(handle) => unsafe {
-                self
-                    .second
+                self.second
                     .try_shrink(handle, capacity)
                     .map(FallbackHandle::Second)
             },
@@ -182,15 +176,13 @@ where
         match handle {
             // SAFETY: Same safety requirements
             FallbackHandle::First(handle) => unsafe {
-                self
-                    .first
+                self.first
                     .try_shrink(handle, capacity)
                     .map(FallbackHandle::First)
             },
             // SAFETY: Same safety requirements
             FallbackHandle::Second(handle) => unsafe {
-                self
-                    .second
+                self.second
                     .try_shrink(handle, capacity)
                     .map(FallbackHandle::Second)
             },
