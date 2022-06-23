@@ -6,12 +6,20 @@ use core::{fmt, mem};
 use crate::base::StorageSafe;
 
 mod private {
-    pub trait Align: Sized + Copy + Default {
-        const DEFAULT: Self;
-    }
+    use super::*;
+
+    pub trait Sealed {}
+
+    impl Sealed for Align1 {}
+    impl Sealed for Align2 {}
+    impl Sealed for Align4 {}
+    impl Sealed for Align8 {}
+    impl Sealed for Align16 {}
 }
 
-use private::Align;
+/// Trait for alignment specification types. These are ZSTs used in a backing to control its
+/// alignment
+pub trait Align: Sized + Copy + Default {}
 
 /// Give a [`Backing`] alignment 1
 #[repr(align(1))]
@@ -34,31 +42,21 @@ pub struct Align8;
 #[derive(Copy, Clone, Default)]
 pub struct Align16;
 
-impl Align for Align1 {
-    const DEFAULT: Self = Align1;
-}
-impl Align for Align2 {
-    const DEFAULT: Self = Align2;
-}
-impl Align for Align4 {
-    const DEFAULT: Self = Align4;
-}
-impl Align for Align8 {
-    const DEFAULT: Self = Align8;
-}
-impl Align for Align16 {
-    const DEFAULT: Self = Align16;
-}
+impl Align for Align1 {}
+impl Align for Align2 {}
+impl Align for Align4 {}
+impl Align for Align8 {}
+impl Align for Align16 {}
 
 /// Standard type for a storage backing. The backing provided will have a size in
 /// bytes of `N`, and an alignment of `A`.
 #[derive(Copy, Clone)]
-pub struct Backing<const N: usize, A: Align = Align1>([u8; N], A);
+pub struct Backing<const N: usize, A: Align = Align1>([u8; N], [A; 0]);
 
 impl<const N: usize, A: Align> Backing<N, A> {
     /// Initialize a new backing
     pub const fn new() -> Backing<N, A> {
-        Backing([0; N], A::DEFAULT)
+        Backing([0; N], [])
     }
 }
 
