@@ -1,8 +1,6 @@
 //! An implementation of the proposed Storages API, including both Storage implementations
 //! as well as common collections built on top of it.
 
-// Needed for `::Handle<T>`, which is a basis of the whole interface
-#![feature(generic_associated_types)]
 // Needed to (de)construct unsized pointers and store their metadata safely
 #![feature(ptr_metadata)]
 // Needed to get a layout from just a type and metadata in `utils::layout_of`

@@ -1,5 +1,4 @@
 #![feature(unsize, ptr_metadata)]
-#![feature(generic_associated_types)]
 #![feature(layout_for_ptr)]
 
 use department::alloc::GlobalAlloc;
