@@ -59,6 +59,58 @@ fn blocks_for<S, T>(capacity: usize) -> usize {
     (mem::size_of::<T>() * capacity) / mem::size_of::<S>()
 }
 
+fn lock_range<const N: usize>(lock: &mut spin::MutexGuard<'_, [bool; N]>, range: Range<usize>) {
+    lock[range].iter_mut().for_each(|i| {
+        debug_assert!(!*i);
+        *i = true;
+    });
+}
+
+fn unlock_range<const N: usize>(lock: &mut spin::MutexGuard<'_, [bool; N]>, range: Range<usize>) {
+    lock[range].iter_mut().for_each(|i| {
+        debug_assert!(*i);
+        *i = false;
+    });
+}
+
+/// Attempt to find open space for an allocation of a given size.
+/// If size is zero, this returns a zero-sized range
+fn find_open<S, const N: usize>(
+    lock: &spin::MutexGuard<'_, [bool; N]>,
+    size: usize,
+) -> Result<Range<usize>> {
+    let blocks = blocks::<S>(size);
+
+    if blocks == 0 {
+        return Ok(0..0);
+    }
+    if blocks > N {
+        return Err(StorageError::InsufficientSpace {
+            expected: size,
+            available: Some(mem::size_of::<S>() * N),
+        });
+    }
+
+    lock.iter()
+        // Count chains of `false` items
+        .scan(0, |n, &v| {
+            if v {
+                *n = 0;
+            } else {
+                *n += 1;
+            }
+            Some(*n)
+        })
+        // Find the end point of a chain with the right size, if one exist
+        .position(|count| count >= blocks)
+        // Find the range of the desired chain
+        .map(|end| {
+            let start = end - (blocks - 1);
+            start..(end + 1)
+        })
+        .ok_or(StorageError::NoSlots)
+}
+
 /// A storage based on a variable (static or on the stack), supporting heap-like behavior but
 /// compiled into the binary. Useful for environments with no allocator support but sufficient space
 /// for either a larger binary or more stack usage.
@@ -93,63 +145,10 @@ where
 {
     fn find_lock(&self, size: usize) -> Result<usize> {
         let mut used = self.used.lock();
-        let open = self.find_open(&used, size)?;
+        let open = find_open::<S, N>(&used, size)?;
         let start = open.start;
-        self.lock_range(&mut used, open);
+        lock_range(&mut used, open);
         Ok(start)
-    }
-
-    fn lock_range(&self, lock: &mut spin::MutexGuard<'_, [bool; N]>, range: Range<usize>) {
-        lock[range].iter_mut().for_each(|i| {
-            debug_assert!(!*i);
-            *i = true
-        });
-    }
-
-    fn unlock_range(&self, lock: &mut spin::MutexGuard<'_, [bool; N]>, range: Range<usize>) {
-        lock[range].iter_mut().for_each(|i| {
-            debug_assert!(*i);
-            *i = false
-        });
-    }
-
-    /// Attempt to find open space for an allocation of a given size.
-    /// If size is zero, this returns a zero-sized range
-    fn find_open(
-        &self,
-        lock: &spin::MutexGuard<'_, [bool; N]>,
-        size: usize,
-    ) -> Result<Range<usize>> {
-        let blocks = blocks::<S>(size);
-
-        if blocks == 0 {
-            return Ok(0..0);
-        }
-        if blocks > N {
-            return Err(StorageError::InsufficientSpace {
-                expected: size,
-                available: Some(mem::size_of::<S>() * N),
-            });
-        }
-
-        lock.iter()
-            // Count chains of `false` items
-            .scan(0, |n, &v| {
-                if v {
-                    *n = 0
-                } else {
-                    *n += 1
-                }
-                Some(*n)
-            })
-            // Find the end point of a chain with the right size, if one exist
-            .position(|count| count >= blocks)
-            // Find the range of the desired chain
-            .map(|end| {
-                let start = end - (blocks - 1);
-                start..(end + 1)
-            })
-            .ok_or(StorageError::NoSlots)
     }
 
     fn grow_in_place<T>(
@@ -168,7 +167,7 @@ where
         let has_space = used[after_old.clone()].iter().all(|&i| !i);
 
         if has_space {
-            self.lock_range(&mut used, after_old);
+            lock_range(&mut used, after_old);
         }
 
         has_space
@@ -183,21 +182,21 @@ where
         let old_range = handle.offset()..(handle.offset() + blocks_for::<S, T>(handle.metadata()));
 
         if handle.metadata() != 0 {
-            self.unlock_range(&mut used, old_range.clone());
+            unlock_range(&mut used, old_range.clone());
         }
 
-        let new_range = match self.find_open(&used, new_layout.size()) {
+        let new_range = match find_open::<S, N>(&used, new_layout.size()) {
             Ok(open) => open,
             Err(_) => {
                 if handle.metadata() != 0 {
-                    self.lock_range(&mut used, old_range);
+                    lock_range(&mut used, old_range);
                 }
                 return None;
             }
         };
 
         let new_start = new_range.start;
-        self.lock_range(&mut used, new_range);
+        lock_range(&mut used, new_range);
 
         // SAFETY: We only access slices of the mutex we have a lock on
         unsafe { &mut *self.storage.get() }.copy_within(old_range, new_start);
@@ -289,7 +288,7 @@ where
         capacity: usize,
     ) -> Result<Self::Handle<[T]>> {
         debug_assert!(capacity <= handle.metadata());
-        self.unlock_range(
+        unlock_range(
             &mut self.used.lock(),
             (handle.offset() + capacity)..(handle.offset() + handle.metadata()),
         );
@@ -318,7 +317,7 @@ where
         // SAFETY: get will return a valid pointer to `T`
         let layout = unsafe { Layout::for_value_raw(ptr.as_ptr()) };
         let mut used = self.used.lock();
-        self.unlock_range(
+        unlock_range(
             &mut used,
             handle.offset()..(handle.offset() + blocks::<S>(layout.size())),
         );

@@ -8,8 +8,10 @@ use core::marker::Unsize;
 use core::ptr::{NonNull, Pointee};
 use spin::Mutex;
 
+use crate::alloc::GlobalAlloc;
 use crate::base::{ExactSizeStorage, LeaksafeStorage, MultiItemStorage, Storage};
 use crate::collections::Vec;
+use crate::handles::Handle;
 
 struct DebugState<S: Storage> {
     single_allocated: Option<DebugHandle<S, ()>>,
@@ -45,17 +47,17 @@ where
         let lock = self.0.lock();
 
         if let Some(alloc_handle) = lock.single_allocated {
-            if alloc_handle != handle {
-                panic!("Attempted to access single allocation with incorrect handle")
-            }
+            assert_eq!(alloc_handle, handle, "Attempted to access single allocation with incorrect handle");
         }
 
-        if lock.deallocated_handles.contains(&handle) {
-            panic!("Attempting to access allocation with deallocated handle")
-        }
-        if !lock.allocated_handles.contains(&handle) {
-            panic!("Attempting to access allocation with never-allocated handle")
-        }
+        assert!(
+            !lock.deallocated_handles.contains(&handle),
+            "Attempting to access allocation with deallocated handle",
+        );
+        assert!(
+            lock.allocated_handles.contains(&handle),
+            "Attempting to access allocation with never-allocated handle"
+        );
     }
 
     fn validate_alloc(&self, single: bool, handle: S::Handle<()>) -> usize {
@@ -67,9 +69,7 @@ where
         let handle = DebugHandle { id, handle };
 
         if single {
-            if lock.single_allocated.is_some() {
-                panic!("Called allocate_single without calling deallocate_single - this may overwrite the old value")
-            }
+            assert!(lock.single_allocated.is_none(), "Called allocate_single without calling deallocate_single - this may overwrite the old value");
             lock.single_allocated = Some(handle);
         }
 
@@ -81,14 +81,10 @@ where
     fn validate_dealloc(&self, single: bool, handle: DebugHandle<S, ()>) {
         let mut lock = self.0.lock();
 
-        if lock.deallocated_handles.contains(&handle) {
-            panic!("Called deallocate_single on the same handle twice")
-        }
+        assert!(!lock.deallocated_handles.contains(&handle), "Called deallocate_single on the same handle twice");
 
         if single {
-            if lock.single_allocated.is_none() {
-                panic!("Called deallocate_single without first allocating")
-            }
+            assert!(lock.single_allocated.is_some(), "Called deallocate_single without first allocating");
             lock.single_allocated = None;
         }
 
@@ -118,24 +114,24 @@ where
         handle: Self::Handle<()>,
         meta: T::Metadata,
     ) -> Self::Handle<T> {
-        handle.map(|h| S::from_raw_parts(h, meta))
+        DebugHandle::from_raw_parts(handle, meta)
     }
 
     fn cast<T: ?Sized + Pointee, U>(handle: Self::Handle<T>) -> Self::Handle<U> {
-        handle.map(|h| S::cast::<T, U>(h))
+        handle.cast()
     }
 
     fn cast_unsized<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(
         handle: Self::Handle<T>,
     ) -> Self::Handle<U> {
-        handle.map(|h| S::cast_unsized::<T, U>(h))
+        handle.cast_unsized()
     }
 
     #[cfg(feature = "unsize")]
     fn coerce<T: ?Sized + Pointee + Unsize<U>, U: ?Sized + Pointee>(
         handle: Self::Handle<T>,
     ) -> Self::Handle<U> {
-        handle.map(|h| S::coerce::<T, U>(h))
+        handle.coerce()
     }
 
     fn allocate_single<T: ?Sized + Pointee>(
@@ -231,6 +227,7 @@ where
 }*/
 
 mod private {
+    use core::fmt;
     use super::*;
 
     /// Handle for a debug storage
@@ -265,6 +262,18 @@ mod private {
         }
     }
 
+    impl<S, T> fmt::Debug for DebugHandle<S, T>
+    where
+        S: Storage,
+        T: ?Sized,
+    {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.debug_struct("DebugHandle")
+                .field("id", &self.id)
+                .finish_non_exhaustive()
+        }
+    }
+
     impl<S, T> PartialEq for DebugHandle<S, T>
     where
         S: Storage,
@@ -282,9 +291,48 @@ mod private {
     }
 
     impl<S: Storage, T: ?Sized> Copy for DebugHandle<S, T> {}
+
+    impl<S: Storage, T: ?Sized> Handle for DebugHandle<S, T> {
+        type Addr = <S::Handle<T> as Handle>::Addr;
+        type Target = T;
+        type This<U: ?Sized> = DebugHandle<S, U>;
+
+        fn from_raw_parts(
+            handle: Self::This<()>,
+            meta: <Self::Target as Pointee>::Metadata,
+        ) -> Self {
+            handle.map(|h| S::from_raw_parts(h, meta))
+        }
+
+        fn addr(self) -> Self::Addr {
+            self.handle.addr()
+        }
+
+        fn metadata(self) -> <Self::Target as Pointee>::Metadata {
+            self.handle.metadata()
+        }
+
+        fn cast<U>(self) -> Self::This<U> {
+            self.map(|h| S::cast::<T, U>(h))
+        }
+
+        fn cast_unsized<U>(self) -> Self::This<U>
+        where
+            U: ?Sized + Pointee<Metadata = <Self::Target as Pointee>::Metadata>,
+        {
+            self.map(|h| S::cast_unsized::<T, U>(h))
+        }
+
+        #[cfg(feature = "unsize")]
+        fn coerce<U: ?Sized>(self) -> Self::This<U>
+        where
+            Self::Target: Unsize<U>,
+        {
+            self.map(|h| S::coerce::<T, U>(h))
+        }
+    }
 }
 
-use crate::alloc::GlobalAlloc;
 use private::DebugHandle;
 
 #[cfg(test)]

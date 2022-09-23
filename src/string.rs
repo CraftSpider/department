@@ -147,7 +147,7 @@ where
 
     fn deref(&self) -> &Self::Target {
         // SAFETY: Invariant of String that the inner vec is valid utf8
-        unsafe { core::str::from_utf8_unchecked(&*self.inner) }
+        unsafe { core::str::from_utf8_unchecked(&self.inner) }
     }
 }
 
@@ -156,7 +156,7 @@ where
     S: Storage,
 {
     fn as_ref(&self) -> &str {
-        &**self
+        self
     }
 }
 
@@ -165,7 +165,7 @@ where
     S: Storage,
 {
     fn borrow(&self) -> &str {
-        &**self
+        self
     }
 }
 

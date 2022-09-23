@@ -118,8 +118,8 @@ where
                 old_ptr.as_ptr().cast::<u8>(),
                 new_ptr.as_ptr().cast::<u8>(),
                 layout.size(),
-            )
-        };
+            );
+        }
 
         // SAFETY: Our handle is guaranteed valid by internal invariant
         unsafe { self.storage.deallocate_single(self.handle) };
@@ -277,7 +277,7 @@ where
     S: Storage,
 {
     fn as_ref(&self) -> &T {
-        &**self
+        self
     }
 }
 
@@ -287,7 +287,7 @@ where
     S: Storage,
 {
     fn as_mut(&mut self) -> &mut T {
-        &mut **self
+        self
     }
 }
 
@@ -297,7 +297,7 @@ where
     S: Storage,
 {
     fn borrow(&self) -> &T {
-        &**self
+        self
     }
 }
 
@@ -307,7 +307,7 @@ where
     S: Storage,
 {
     fn borrow_mut(&mut self) -> &mut T {
-        &mut **self
+        self
     }
 }
 

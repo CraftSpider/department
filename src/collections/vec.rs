@@ -181,7 +181,7 @@ where
                 slice[pos + 1].as_ptr(),
                 slice[pos].as_mut_ptr(),
                 self.len - pos + 1,
-            )
+            );
         }
 
         // SAFETY: Popped element must be initialized, as length counts initialized items
@@ -213,7 +213,7 @@ where
     S: Storage,
 {
     fn as_ref(&self) -> &[T] {
-        &**self
+        self
     }
 }
 
@@ -222,7 +222,7 @@ where
     S: Storage,
 {
     fn as_mut(&mut self) -> &mut [T] {
-        &mut **self
+        self
     }
 }
 
@@ -231,7 +231,7 @@ where
     S: Storage,
 {
     fn borrow(&self) -> &[T] {
-        &**self
+        self
     }
 }
 
@@ -240,7 +240,7 @@ where
     S: Storage,
 {
     fn borrow_mut(&mut self) -> &mut [T] {
-        &mut **self
+        self
     }
 }
 
@@ -384,7 +384,7 @@ where
     S: Storage,
 {
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
-        iter.into_iter().for_each(|i| self.push(i))
+        iter.into_iter().for_each(|i| self.push(i));
     }
 }
 

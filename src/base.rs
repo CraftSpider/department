@@ -13,6 +13,7 @@ use core::{fmt, ptr};
 
 use crate::error;
 use crate::error::StorageError;
+use crate::handles::Handle;
 
 macro_rules! create_drop {
     ($create:ident, $create_range:ident, $create_dyn:ident, $drop:ident; $allocate:ident, $deallocate:ident) => {
@@ -147,7 +148,7 @@ pub unsafe trait Storage {
     ///
     /// Certain extension traits may loosen these requirements (See [`LeaksafeStorage`] for an
     /// example)
-    type Handle<T: ?Sized>: Copy + PartialEq;
+    type Handle<T: ?Sized>: Copy + PartialEq + Handle<Target = T>;
 
     /// Convert a handle into a raw pointer.
     ///

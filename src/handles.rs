@@ -19,23 +19,26 @@ use core::ptr::{NonNull, Pointee};
 /// to implement such always-thin items via a custom `ThinBox` style type, meaning the lack of them
 /// in this API does not prevent storages from having them entirely. This decision is open to change
 /// before the release of 1.0 - feel free to open an issue if you have a compelling use-case.
-pub trait Handle<T: ?Sized + Pointee> {
+pub trait Handle {
     /// The type of address for this handle. This is only [`PartialOrd`] instead of [`Ord`] because
-    /// some handles may not be strictly greater or lesser than others (See `FallbackStorage`)
+    /// some handles may not be strictly greater or lesser than others (See [`FallbackStorage`](crate::fallback::FallbackStorage))
     type Addr: Copy + Eq + PartialOrd;
 
+    /// The target type for this handle.
+    type Target: ?Sized + Pointee;
+
     /// The type of this handle, with a different type in place of `T`
-    type This<U: ?Sized>;
+    type This<U: ?Sized>: Handle<Target = U>;
 
     /// Create this handle from an empty tuple handle and a metadata
-    fn from_raw_parts(handle: Self::This<()>, meta: T::Metadata) -> Self;
+    fn from_raw_parts(handle: Self::This<()>, meta: <Self::Target as Pointee>::Metadata) -> Self;
 
     /// Address of this handle. The exact meaning of 'address' may vary between handles, handles
     /// to different items may have the same address
     fn addr(self) -> Self::Addr;
 
     /// Metadata of `T` associated with this handle
-    fn metadata(self) -> T::Metadata;
+    fn metadata(self) -> <Self::Target as Pointee>::Metadata;
 
     /// Convert this handle into one pointing to type `U`, discarding metadata
     fn cast<U>(self) -> Self::This<U>;
@@ -43,18 +46,19 @@ pub trait Handle<T: ?Sized + Pointee> {
     /// Convert this handle into one pointing to type `U`, preserving metadata
     fn cast_unsized<U>(self) -> Self::This<U>
     where
-        U: ?Sized + Pointee<Metadata = T::Metadata>;
+        U: ?Sized + Pointee<Metadata = <Self::Target as Pointee>::Metadata>;
 
     /// Coerce this handle into an unsized type its current type. This is equivalent to invoking
     /// `CoerceUnsized` via an `as` cast, if it's implemented.
     #[cfg(feature = "unsize")]
     fn coerce<U: ?Sized>(self) -> Self::This<U>
     where
-        T: Unsize<U>;
+        Self::Target: Unsize<U>;
 }
 
-impl<T: ?Sized + Pointee> Handle<T> for *const T {
+impl<T: ?Sized + Pointee> Handle for *const T {
     type Addr = usize;
+    type Target = T;
 
     type This<U: ?Sized> = *const U;
 
@@ -91,8 +95,9 @@ impl<T: ?Sized + Pointee> Handle<T> for *const T {
     }
 }
 
-impl<T: ?Sized + Pointee> Handle<T> for *mut T {
+impl<T: ?Sized + Pointee> Handle for *mut T {
     type Addr = usize;
+    type Target = T;
 
     type This<U: ?Sized> = *mut U;
 
@@ -129,8 +134,9 @@ impl<T: ?Sized + Pointee> Handle<T> for *mut T {
     }
 }
 
-impl<T: ?Sized + Pointee> Handle<T> for NonNull<T> {
+impl<T: ?Sized + Pointee> Handle for NonNull<T> {
     type Addr = usize;
+    type Target = T;
 
     type This<U: ?Sized> = NonNull<U>;
 
@@ -214,8 +220,9 @@ impl<T: ?Sized + Pointee> MetaHandle<T> {
     }
 }
 
-impl<T: ?Sized + Pointee> Handle<T> for MetaHandle<T> {
+impl<T: ?Sized + Pointee> Handle for MetaHandle<T> {
     type Addr = ();
+    type Target = T;
 
     type This<U: ?Sized> = MetaHandle<U>;
 
@@ -288,9 +295,7 @@ impl<T: ?Sized + Pointee> OffsetMetaHandle<T> {
     /// If offset is equal to `usize::MAX`, due to that being a reserved value
     #[inline]
     pub const fn from_offset_meta(offset: usize, meta: T::Metadata) -> OffsetMetaHandle<T> {
-        if offset == usize::MAX {
-            panic!("OffsetMetaHandle reserves usize::MAX for niche optimization");
-        }
+        assert!(offset != usize::MAX, "OffsetMetaHandle reserves usize::MAX for niche optimization");
         // SAFETY: We do `offset + 1`, and offset is not usize::MAX, so the resulting value will
         //         always be in-bounds and non-zero
         OffsetMetaHandle(unsafe { NonZeroUsize::new_unchecked(offset + 1) }, meta)
@@ -323,11 +328,7 @@ impl<T: ?Sized + Pointee> OffsetMetaHandle<T> {
     /// Change the offset of this handle by some value. The user must ensure the resulting handle is
     /// valid
     pub const fn offset_by(self, offset: isize) -> OffsetMetaHandle<T> {
-        if offset.is_negative() {
-            self.sub((-offset) as usize)
-        } else {
-            self.add(offset as usize)
-        }
+        self.sub(offset.unsigned_abs())
     }
 
     /// Cast this handle to any sized type, similar to [`NonNull::cast`][core::ptr::NonNull]
@@ -358,8 +359,9 @@ impl<T: ?Sized + Pointee> OffsetMetaHandle<T> {
     }
 }
 
-impl<T: ?Sized + Pointee> Handle<T> for OffsetMetaHandle<T> {
+impl<T: ?Sized + Pointee> Handle for OffsetMetaHandle<T> {
     type Addr = usize;
+    type Target = T;
 
     type This<U: ?Sized> = OffsetMetaHandle<U>;
 
@@ -421,5 +423,23 @@ where
             .field("offset", &self.offset())
             .field("metadata", &self.metadata())
             .finish()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_meta_handle() {
+        let h1 = MetaHandle::<str>::from_metadata(1);
+        assert_eq!(h1.metadata(), 1);
+        let h2 = h1.cast::<()>();
+        assert_eq!(h2.metadata(), ());
+        let h3 = h1.cast_unsized::<[u8]>();
+        assert_eq!(h3.metadata(), 1);
+
+        assert_eq!(h1, MetaHandle::from_raw_parts(h2, 1));
+        assert_eq!(h3, MetaHandle::from_raw_parts(h2, 1));
     }
 }

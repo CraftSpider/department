@@ -153,7 +153,7 @@ where
 
 impl<S, const N: usize> Drop for MultiStatic<S, N> {
     fn drop(&mut self) {
-        self.storage.release()
+        self.storage.release();
     }
 }
 

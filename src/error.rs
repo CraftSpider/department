@@ -33,7 +33,7 @@ pub enum StorageError {
 impl StorageError {
     /// Create a `StorageError` which represents insufficient space where the requested space
     /// is greater than the maximum possible storage space ([`usize::MAX`])
-    pub fn exceeds_max() -> StorageError {
+    pub const fn exceeds_max() -> StorageError {
         StorageError::InsufficientSpace {
             expected: 0,
             available: Some(usize::MAX),

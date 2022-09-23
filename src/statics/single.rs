@@ -118,7 +118,7 @@ impl<S> fmt::Debug for SingleStatic<S> {
 
 impl<S> Drop for SingleStatic<S> {
     fn drop(&mut self) {
-        self.0.release()
+        self.0.release();
     }
 }
 

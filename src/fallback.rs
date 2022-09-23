@@ -11,6 +11,7 @@ use core::ptr::{NonNull, Pointee};
 
 use crate::base::{ClonesafeStorage, ExactSizeStorage, LeaksafeStorage, MultiItemStorage, Storage};
 use crate::error;
+use crate::handles::Handle;
 
 /// A storage which attempts to store in one storage, then falls back to a second
 #[derive(Copy, Clone)]
@@ -65,38 +66,22 @@ where
         handle: Self::Handle<()>,
         meta: T::Metadata,
     ) -> Self::Handle<T> {
-        match handle {
-            FallbackHandle::First(handle) => {
-                FallbackHandle::First(S1::from_raw_parts(handle, meta))
-            }
-            FallbackHandle::Second(handle) => {
-                FallbackHandle::Second(S2::from_raw_parts(handle, meta))
-            }
-        }
+        FallbackHandle::from_raw_parts(handle, meta)
     }
 
     fn cast<T: ?Sized + Pointee, U>(handle: Self::Handle<T>) -> Self::Handle<U> {
-        match handle {
-            FallbackHandle::First(handle) => FallbackHandle::First(S1::cast(handle)),
-            FallbackHandle::Second(handle) => FallbackHandle::Second(S2::cast(handle)),
-        }
+        handle.cast()
     }
 
     fn cast_unsized<T: ?Sized + Pointee, U: ?Sized + Pointee<Metadata = T::Metadata>>(
         handle: Self::Handle<T>,
     ) -> Self::Handle<U> {
-        match handle {
-            FallbackHandle::First(handle) => FallbackHandle::First(S1::cast_unsized(handle)),
-            FallbackHandle::Second(handle) => FallbackHandle::Second(S2::cast_unsized(handle)),
-        }
+        handle.cast_unsized()
     }
 
     #[cfg(feature = "unsize")]
     fn coerce<T: ?Sized + Unsize<U>, U: ?Sized>(handle: Self::Handle<T>) -> Self::Handle<U> {
-        match handle {
-            FallbackHandle::First(handle) => FallbackHandle::First(S1::coerce(handle)),
-            FallbackHandle::Second(handle) => FallbackHandle::Second(S2::coerce(handle)),
-        }
+        handle.coerce()
     }
 
     fn allocate_single<T: ?Sized + Pointee>(
@@ -248,6 +233,73 @@ where
 
 mod private {
     use super::*;
+    use core::cmp::Ordering;
+    use core::mem::ManuallyDrop;
+
+    union HandleCast<S: Storage, T: ?Sized, U: ?Sized> {
+        left: ManuallyDrop<<S::Handle<T> as Handle>::This<U>>,
+        right: ManuallyDrop<S::Handle<U>>,
+    }
+
+    impl<S: Storage, T: ?Sized, U: ?Sized> HandleCast<S, T, U> {
+        fn cast(handle: <S::Handle<T> as Handle>::This<U>) -> S::Handle<U> {
+            // SAFETY: <S::Handle<T>>::This<U> is guaranteed equal to <S::Handle<U>>
+            let new = unsafe {
+                Self {
+                    left: ManuallyDrop::new(handle),
+                }
+                .right
+            };
+            ManuallyDrop::into_inner(new)
+        }
+
+        fn rev_cast(handle: S::Handle<U>) -> <S::Handle<T> as Handle>::This<U> {
+            // SAFETY: <S::Handle<T>>::This<U> is guaranteed equal to <S::Handle<U>>
+            let new = unsafe {
+                Self {
+                    right: ManuallyDrop::new(handle),
+                }
+                .left
+            };
+            ManuallyDrop::into_inner(new)
+        }
+    }
+
+    pub enum FallbackAddr<S1: Storage, S2: Storage, T: ?Sized> {
+        First(<S1::Handle<T> as Handle>::Addr),
+        Second(<S2::Handle<T> as Handle>::Addr),
+    }
+
+    impl<S1: Storage, S2: Storage, T: ?Sized> Copy for FallbackAddr<S1, S2, T> {}
+    impl<S1: Storage, S2: Storage, T: ?Sized> Clone for FallbackAddr<S1, S2, T> {
+        fn clone(&self) -> Self {
+            *self
+        }
+    }
+
+    impl<S1: Storage, S2: Storage, T: ?Sized> PartialEq for FallbackAddr<S1, S2, T> {
+        fn eq(&self, other: &Self) -> bool {
+            use FallbackAddr::{First, Second};
+            match (self, other) {
+                (First(this), First(other)) => this == other,
+                (Second(this), Second(other)) => this == other,
+                _ => false,
+            }
+        }
+    }
+
+    impl<S1: Storage, S2: Storage, T: ?Sized> Eq for FallbackAddr<S1, S2, T> {}
+
+    impl<S1: Storage, S2: Storage, T: ?Sized> PartialOrd for FallbackAddr<S1, S2, T> {
+        fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+            use FallbackAddr::{First, Second};
+            match (self, other) {
+                (First(this), First(other)) => this.partial_cmp(other),
+                (Second(this), Second(other)) => this.partial_cmp(other),
+                _ => None,
+            }
+        }
+    }
 
     /// Handle for a fallback storage. Contains either a handle for the first or second storage used
     #[non_exhaustive]
@@ -256,6 +308,42 @@ mod private {
         First(S1::Handle<T>),
         /// Allocation uses the second storage
         Second(S2::Handle<T>),
+    }
+
+    impl<S1: Storage, S2: Storage, T: ?Sized> FallbackHandle<S1, S2, T> {
+        fn map<U: ?Sized>(
+            self,
+            left: impl FnOnce(S1::Handle<T>) -> <S1::Handle<T> as Handle>::This<U>,
+            right: impl FnOnce(S2::Handle<T>) -> <S2::Handle<T> as Handle>::This<U>,
+        ) -> FallbackHandle<S1, S2, U> {
+            match self {
+                FallbackHandle::First(h) => {
+                    let h = HandleCast::<S1, _, _>::cast(left(h));
+                    FallbackHandle::First(h)
+                }
+                FallbackHandle::Second(h) => {
+                    let h = HandleCast::<S2, _, _>::cast(right(h));
+                    FallbackHandle::Second(h)
+                }
+            }
+        }
+
+        fn rev_map<U: ?Sized>(
+            handle: <Self as Handle>::This<U>,
+            left: impl FnOnce(<S1::Handle<T> as Handle>::This<U>) -> S1::Handle<T>,
+            right: impl FnOnce(<S2::Handle<T> as Handle>::This<U>) -> S2::Handle<T>,
+        ) -> FallbackHandle<S1, S2, T> {
+            match handle {
+                FallbackHandle::First(h) => {
+                    let h = HandleCast::<S1, _, _>::rev_cast(h);
+                    FallbackHandle::First(left(h))
+                }
+                FallbackHandle::Second(h) => {
+                    let h = HandleCast::<S2, _, _>::rev_cast(h);
+                    FallbackHandle::Second(right(h))
+                }
+            }
+        }
     }
 
     impl<S1: Storage, S2: Storage, T: ?Sized> PartialEq for FallbackHandle<S1, S2, T>
@@ -289,6 +377,64 @@ mod private {
         S2: Storage,
         T: ?Sized,
     {
+    }
+
+    impl<S1, S2, T> Handle for FallbackHandle<S1, S2, T>
+    where
+        S1: Storage,
+        S2: Storage,
+        T: ?Sized,
+    {
+        type Addr = FallbackAddr<S1, S2, T>;
+        type Target = T;
+        type This<U: ?Sized> = FallbackHandle<S1, S2, U>;
+
+        fn from_raw_parts(
+            handle: Self::This<()>,
+            meta: <Self::Target as Pointee>::Metadata,
+        ) -> Self {
+            Self::rev_map(
+                handle,
+                |h| <S1::Handle<T>>::from_raw_parts(h, meta),
+                |h| <S2::Handle<T>>::from_raw_parts(h, meta),
+            )
+        }
+
+        fn addr(self) -> Self::Addr {
+            match self {
+                FallbackHandle::First(h) => FallbackAddr::First(h.addr()),
+                FallbackHandle::Second(h) => FallbackAddr::Second(h.addr()),
+            }
+        }
+
+        fn metadata(self) -> <Self::Target as Pointee>::Metadata {
+            match self {
+                FallbackHandle::First(h) => h.metadata(),
+                FallbackHandle::Second(h) => h.metadata(),
+            }
+        }
+
+        fn cast<U>(self) -> Self::This<U> {
+            self.map(<S1::Handle<T>>::cast::<U>, <S2::Handle<T>>::cast::<U>)
+        }
+
+        fn cast_unsized<U>(self) -> Self::This<U>
+        where
+            U: ?Sized + Pointee<Metadata = <Self::Target as Pointee>::Metadata>,
+        {
+            self.map(
+                <S1::Handle<T>>::cast_unsized::<U>,
+                <S2::Handle<T>>::cast_unsized::<U>,
+            )
+        }
+
+        #[cfg(feature = "unsize")]
+        fn coerce<U: ?Sized>(self) -> Self::This<U>
+        where
+            Self::Target: Unsize<U>,
+        {
+            self.map(<S1::Handle<T>>::coerce::<U>, <S2::Handle<T>>::coerce::<U>)
+        }
     }
 }
 

@@ -179,13 +179,13 @@ impl<T: ?Sized, S: Storage + ClonesafeStorage> Deref for Rc<T, S> {
 
 impl<T: ?Sized, S: Storage + ClonesafeStorage> AsRef<T> for Rc<T, S> {
     fn as_ref(&self) -> &T {
-        &**self
+        self
     }
 }
 
 impl<T: ?Sized, S: Storage + ClonesafeStorage> Borrow<T> for Rc<T, S> {
     fn borrow(&self) -> &T {
-        &**self
+        self
     }
 }
 
@@ -231,21 +231,21 @@ pub struct Weak<T: ?Sized, S: Storage + ClonesafeStorage> {
 }
 
 impl<T: ?Sized, S: Storage + ClonesafeStorage> Weak<T, S> {
-    fn inner(&self) -> Option<WeakInner<'_>> {
+    fn inner(&self) -> WeakInner<'_> {
         // SAFETY: Handle is valid by internal invariant
         let ptr = unsafe { self.storage.get(self.handle) }.as_ptr();
-        Some(WeakInner {
+        WeakInner {
             // SAFETY: Pointer is from `get` on valid handle
             strong: unsafe { &(*ptr).strong },
             // SAFETY: Pointer is from `get` on valid handle
             weak: unsafe { &(*ptr).weak },
-        })
+        }
     }
 
     /// Attempt to convert this [`Weak`] back into an [`Rc`]. Returns `None` if all strong
     /// references to the data have already been dropped.
     pub fn upgrade(&self) -> Option<Rc<T, S>> {
-        let inner = self.inner()?;
+        let inner = self.inner();
         if inner.strong() == 0 {
             None
         } else {
@@ -259,11 +259,7 @@ impl<T: ?Sized, S: Storage + ClonesafeStorage> Weak<T, S> {
 
 impl<T: ?Sized, S: Storage + ClonesafeStorage> Drop for Weak<T, S> {
     fn drop(&mut self) {
-        let inner = if let Some(inner) = self.inner() {
-            inner
-        } else {
-            return;
-        };
+        let inner = self.inner();
 
         inner.dec_weak();
         if inner.weak() == 0 {
