@@ -328,7 +328,12 @@ impl<T: ?Sized + Pointee> OffsetMetaHandle<T> {
     /// Change the offset of this handle by some value. The user must ensure the resulting handle is
     /// valid
     pub const fn offset_by(self, offset: isize) -> OffsetMetaHandle<T> {
-        self.sub(offset.unsigned_abs())
+        let abs = offset.unsigned_abs();
+        if offset.is_negative() {
+            self.sub(abs)
+        } else {
+            self.add(abs)
+        }
     }
 
     /// Cast this handle to any sized type, similar to [`NonNull::cast`][core::ptr::NonNull]
