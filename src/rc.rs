@@ -7,10 +7,10 @@ use core::marker::PhantomData;
 #[cfg(feature = "unsize")]
 use core::marker::Unsize;
 #[cfg(feature = "unsize")]
-use core::mem;
-#[cfg(feature = "unsize")]
 use core::ops::CoerceUnsized;
 use core::ops::Deref;
+#[cfg(feature = "unsize")]
+use core::mem::ManuallyDrop;
 
 #[repr(C)]
 #[derive(Debug)]
@@ -108,10 +108,10 @@ impl<T: ?Sized, S: Storage + ClonesafeStorage> Rc<T, S> {
     where
         T: Unsize<U>,
     {
-        let handle = S::coerce::<_, RcBox<U>>(self.handle);
-        let storage = self.storage.clone();
-        // Ensure we don't decrement refcount
-        mem::forget(self);
+        // Prevent us from decrementing refcount
+        let this = ManuallyDrop::new(self);
+        let handle = S::coerce::<_, RcBox<U>>(this.handle);
+        let storage = this.storage.clone();
         Rc {
             handle,
             storage,

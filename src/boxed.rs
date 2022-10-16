@@ -151,17 +151,17 @@ where
     /// The returned data lives for the rest of the program's life, dropping the pointer will
     /// cause a memory leak. If this isn't acceptable, use [`Box::from_raw`] or [`Box::from_raw_in`]
     /// to regain ownership of this memory.
-    pub fn into_raw(mut this: Self) -> NonNull<T>
+    pub fn into_raw(this: Self) -> NonNull<T>
     where
         S: LeaksafeStorage,
     {
+        let mut this = ManuallyDrop::new(this);
         // SAFETY: Handle is valid by internal invariant
         let out = unsafe { this.storage.get(this.handle) };
         // SAFETY: We consume self, so no one will touch us after this
         unsafe {
             ManuallyDrop::drop(&mut this.storage);
         }
-        mem::forget(this);
         out
     }
 
@@ -201,11 +201,12 @@ where
     }
 
     /// Convert this box into its component storage and handle
-    pub fn into_parts(mut self) -> (S, S::Handle<T>) {
+    pub fn into_parts(self) -> (S, S::Handle<T>) {
+        // Prevent us deallocating the handle at the end of scope
+        let mut this = ManuallyDrop::new(self);
         // SAFETY: We consume self, so no one will touch us after this
-        let storage = unsafe { ManuallyDrop::take(&mut self.storage) };
-        let handle = self.handle;
-        mem::forget(self);
+        let storage = unsafe { ManuallyDrop::take(&mut this.storage) };
+        let handle = this.handle;
         (storage, handle)
     }
 
@@ -225,17 +226,13 @@ where
     /// Perform an unsizing operation on `self`. A temporary solution to limitations with
     /// manual unsizing.
     #[cfg(feature = "unsize")]
-    pub fn coerce<U: ?Sized>(mut self) -> Box<U, S>
+    pub fn coerce<U: ?Sized>(self) -> Box<U, S>
     where
         T: Unsize<U>,
     {
-        let handle = S::coerce::<_, U>(self.handle);
-        // SAFETY: We consume self, so no one will touch us after this
-        let storage = unsafe { ManuallyDrop::take(&mut self.storage) };
-        // Don't run drop for the old handle
-        mem::forget(self);
+        let (storage, handle) = Box::into_parts(self);
         Box {
-            handle,
+            handle: S::coerce::<_, U>(handle),
             storage: ManuallyDrop::new(storage),
         }
     }
