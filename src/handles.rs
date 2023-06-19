@@ -30,6 +30,8 @@ pub trait Handle {
     /// The type of this handle, with a different type in place of `T`
     type This<U: ?Sized>: Handle<Target = U>;
 
+    // Pointee-related APIs
+
     /// Create this handle from an empty tuple handle and a metadata
     fn from_raw_parts(handle: Self::This<()>, meta: <Self::Target as Pointee>::Metadata) -> Self;
 
@@ -39,6 +41,16 @@ pub trait Handle {
 
     /// Metadata of `T` associated with this handle
     fn metadata(self) -> <Self::Target as Pointee>::Metadata;
+
+    // Strict provenance-related APIs
+
+    /// Create a version of this handle with the specified address
+    fn with_addr(self, addr: Self::Addr) -> Self;
+
+    /// Map the address of this handle to another
+    fn map_addr(self, f: impl FnOnce(Self::Addr) -> Self::Addr) -> Self;
+
+    // Casting APIs
 
     /// Convert this handle into one pointing to type `U`, discarding metadata
     fn cast<U>(self) -> Self::This<U>;
@@ -72,6 +84,14 @@ impl<T: ?Sized + Pointee> Handle for *const T {
 
     fn metadata(self) -> T::Metadata {
         ptr::metadata(self)
+    }
+
+    fn with_addr(self, addr: Self::Addr) -> Self {
+        <*const T>::with_addr(self, addr)
+    }
+
+    fn map_addr(self, f: impl FnOnce(Self::Addr) -> Self::Addr) -> Self {
+        <*const T>::map_addr(self, f)
     }
 
     fn cast<U>(self) -> Self::This<U> {
@@ -113,6 +133,14 @@ impl<T: ?Sized + Pointee> Handle for *mut T {
         ptr::metadata(self)
     }
 
+    fn with_addr(self, addr: Self::Addr) -> Self {
+        <*mut T>::with_addr(self, addr)
+    }
+
+    fn map_addr(self, f: impl FnOnce(Self::Addr) -> Self::Addr) -> Self {
+        <*mut T>::map_addr(self, f)
+    }
+
     fn cast<U>(self) -> Self::This<U> {
         self.cast()
     }
@@ -135,7 +163,7 @@ impl<T: ?Sized + Pointee> Handle for *mut T {
 }
 
 impl<T: ?Sized + Pointee> Handle for NonNull<T> {
-    type Addr = usize;
+    type Addr = NonZeroUsize;
     type Target = T;
 
     type This<U: ?Sized> = NonNull<U>;
@@ -144,12 +172,20 @@ impl<T: ?Sized + Pointee> Handle for NonNull<T> {
         NonNull::from_raw_parts(handle, meta)
     }
 
-    fn addr(self) -> usize {
-        self.cast::<()>().as_ptr() as usize
+    fn addr(self) -> NonZeroUsize {
+        NonNull::addr(self)
     }
 
     fn metadata(self) -> T::Metadata {
         ptr::metadata(self.as_ptr())
+    }
+
+    fn with_addr(self, addr: Self::Addr) -> Self {
+        NonNull::with_addr(self, addr)
+    }
+
+    fn map_addr(self, f: impl FnOnce(Self::Addr) -> Self::Addr) -> Self {
+        NonNull::map_addr(self, f)
     }
 
     fn cast<U>(self) -> Self::This<U> {
@@ -234,6 +270,15 @@ impl<T: ?Sized + Pointee> Handle for MetaHandle<T> {
 
     fn metadata(self) -> T::Metadata {
         MetaHandle::metadata(self)
+    }
+
+    fn with_addr(self, _: Self::Addr) -> Self {
+        self
+    }
+
+    fn map_addr(self, f: impl FnOnce(Self::Addr) -> Self::Addr) -> Self {
+        f(());
+        self
     }
 
     fn cast<U>(self) -> Self::This<U> {
@@ -380,6 +425,14 @@ impl<T: ?Sized + Pointee> Handle for OffsetMetaHandle<T> {
 
     fn metadata(self) -> T::Metadata {
         OffsetMetaHandle::metadata(self)
+    }
+
+    fn with_addr(self, addr: Self::Addr) -> Self {
+        OffsetMetaHandle::from_offset_meta(addr, self.1)
+    }
+
+    fn map_addr(self, f: impl FnOnce(Self::Addr) -> Self::Addr) -> Self {
+        OffsetMetaHandle::from_offset_meta(f(self.addr()), self.1)
     }
 
     fn cast<U>(self) -> Self::This<U> {

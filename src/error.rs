@@ -55,10 +55,9 @@ impl fmt::Display for StorageError {
                     }
                     Some(available) => write!(
                         f,
-                        "Expected {}, but only {} is available",
-                        expected, available
+                        "Expected {expected}, but only {available} is available",
                     ),
-                    None => write!(f, "Expected {}, but less was available", expected),
+                    None => write!(f, "Expected {expected}, but less was available"),
                 }
             }
             StorageError::InvalidAlign {
@@ -66,8 +65,7 @@ impl fmt::Display for StorageError {
                 available: actual,
             } => write!(
                 f,
-                "Invalid align to store type. Expected layout of at least {}, but backing was {}",
-                expected, actual
+                "Invalid align to store type. Expected layout of at least {expected}, but backing was {actual}",
             ),
             StorageError::NoSlots => write!(f, "Multi-element storage has run out of slots"),
             StorageError::Unimplemented => write!(f, "Operation is not supported on this storage"),

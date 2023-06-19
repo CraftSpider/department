@@ -414,6 +414,14 @@ mod private {
             }
         }
 
+        fn with_addr(self, addr: Self::Addr) -> Self {
+            todo!()
+        }
+
+        fn map_addr(self, f: impl FnOnce(Self::Addr) -> Self::Addr) -> Self {
+            todo!()
+        }
+
         fn cast<U>(self) -> Self::This<U> {
             self.map(<S1::Handle<T>>::cast::<U>, <S2::Handle<T>>::cast::<U>)
         }

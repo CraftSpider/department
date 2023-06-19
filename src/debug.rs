@@ -312,6 +312,14 @@ mod private {
             self.handle.metadata()
         }
 
+        fn with_addr(self, addr: Self::Addr) -> Self {
+            self.map(|h| h.with_addr(addr))
+        }
+
+        fn map_addr(self, f: impl FnOnce(Self::Addr) -> Self::Addr) -> Self {
+            self.map(|h| h.map_addr(f))
+        }
+
         fn cast<U>(self) -> Self::This<U> {
             self.map(|h| S::cast::<T, U>(h))
         }

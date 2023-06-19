@@ -5,8 +5,11 @@
 #![feature(ptr_metadata)]
 // Needed to get a layout from just a type and metadata in `utils::layout_of`
 #![feature(layout_for_ptr)]
+#![feature(strict_provenance)]
 // Needed to implement custom unsizing and coercion
 #![cfg_attr(feature = "unsize", feature(unsize, coerce_unsized))]
+// Needed for Handle casts to work
+#![feature(non_lifetime_binders)]
 #![warn(
     missing_docs,
     elided_lifetimes_in_paths,

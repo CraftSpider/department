@@ -42,7 +42,7 @@ impl<T, S: Storage + MultiItemStorage> LinkedList<T, S> {
                 prev: None,
                 value,
             })
-            .unwrap_or_else(|(err, _)| panic!("Storage Error: {}", err));
+            .unwrap_or_else(|(err, _)| panic!("Storage Error: {err}"));
         let first = self.nodes.insert((first_node, first_node)).0;
         // SAFETY: We uniquely borrow self, and we just allocated this handle
         unsafe { self.node_val_mut(first) }
@@ -95,7 +95,7 @@ impl<T, S: Storage + MultiItemStorage> LinkedList<T, S> {
                 prev: Some(node),
                 value,
             })
-            .unwrap_or_else(|(err, _)| panic!("Storage Error: {}", err));
+            .unwrap_or_else(|(err, _)| panic!("Storage Error: {err}"));
 
         self.fix_refs(Some(node), new_node, new_next);
 
