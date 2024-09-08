@@ -7,10 +7,10 @@ use core::marker::PhantomData;
 #[cfg(feature = "unsize")]
 use core::marker::Unsize;
 #[cfg(feature = "unsize")]
+use core::mem::ManuallyDrop;
+#[cfg(feature = "unsize")]
 use core::ops::CoerceUnsized;
 use core::ops::Deref;
-#[cfg(feature = "unsize")]
-use core::mem::ManuallyDrop;
 
 #[repr(C)]
 #[derive(Debug)]

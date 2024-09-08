@@ -46,15 +46,13 @@ impl<S> StorageCell<S> {
     }
 
     fn inner_try_claim(&self) -> bool {
-        self
-            .1
+        self.1
             .compare_exchange(false, true, Ordering::SeqCst, Ordering::Acquire)
             .map_or(false, |val| !val)
     }
 
     fn inner_try_release(&self) -> bool {
-        self
-            .1
+        self.1
             .compare_exchange(true, false, Ordering::SeqCst, Ordering::Relaxed)
             .is_ok()
     }

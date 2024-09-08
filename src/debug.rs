@@ -47,7 +47,10 @@ where
         let lock = self.0.lock();
 
         if let Some(alloc_handle) = lock.single_allocated {
-            assert_eq!(alloc_handle, handle, "Attempted to access single allocation with incorrect handle");
+            assert_eq!(
+                alloc_handle, handle,
+                "Attempted to access single allocation with incorrect handle"
+            );
         }
 
         assert!(
@@ -81,10 +84,16 @@ where
     fn validate_dealloc(&self, single: bool, handle: DebugHandle<S, ()>) {
         let mut lock = self.0.lock();
 
-        assert!(!lock.deallocated_handles.contains(&handle), "Called deallocate_single on the same handle twice");
+        assert!(
+            !lock.deallocated_handles.contains(&handle),
+            "Called deallocate_single on the same handle twice"
+        );
 
         if single {
-            assert!(lock.single_allocated.is_some(), "Called deallocate_single without first allocating");
+            assert!(
+                lock.single_allocated.is_some(),
+                "Called deallocate_single without first allocating"
+            );
             lock.single_allocated = None;
         }
 
@@ -227,8 +236,8 @@ where
 }*/
 
 mod private {
-    use core::fmt;
     use super::*;
+    use core::fmt;
 
     /// Handle for a debug storage
     pub struct DebugHandle<S: Storage, T: ?Sized> {
