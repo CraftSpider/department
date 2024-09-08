@@ -119,6 +119,7 @@ fn find_open<S, const N: usize>(
 /// implementation.
 #[derive(Debug)]
 pub struct VirtHeap<S, const N: usize> {
+    // TODO: This is unnecessarily inefficient in terms of memory
     used: spin::Mutex<[bool; N]>,
     storage: UnsafeCell<[MaybeUninit<S>; N]>,
 }
@@ -202,6 +203,15 @@ where
         unsafe { &mut *self.storage.get() }.copy_within(old_range, new_start);
 
         Some(new_start)
+    }
+}
+
+impl<S, const N: usize> Default for VirtHeap<S, N>
+where
+    S: StorageSafe,
+{
+    fn default() -> Self {
+        VirtHeap::new()
     }
 }
 

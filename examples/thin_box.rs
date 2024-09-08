@@ -15,7 +15,7 @@ use std::ptr::{NonNull, Pointee};
 use std::{mem, ptr};
 
 pub(crate) fn layout_of<T: ?Sized + Pointee>(meta: T::Metadata) -> Layout {
-    let pointer = ptr::from_raw_parts(ptr::null(), meta);
+    let pointer = ptr::from_raw_parts(ptr::null::<()>(), meta);
     // SAFETY: The provided metadata is passed by value, and thus must be a valid instance of the
     //         metadata for `T`
     unsafe { Layout::for_value_raw::<T>(pointer) }

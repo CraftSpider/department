@@ -83,7 +83,7 @@ impl<T: ?Sized + Pointee> Handle for *const T {
         U: ?Sized + Pointee<Metadata = T::Metadata>,
     {
         let meta = ptr::metadata(self);
-        ptr::from_raw_parts(self.cast(), meta)
+        ptr::from_raw_parts(self.cast::<()>(), meta)
     }
 
     #[cfg(feature = "unsize")]
@@ -122,7 +122,7 @@ impl<T: ?Sized + Pointee> Handle for *mut T {
         U: ?Sized + Pointee<Metadata = T::Metadata>,
     {
         let meta = ptr::metadata(self);
-        ptr::from_raw_parts_mut(self.cast(), meta)
+        ptr::from_raw_parts_mut(self.cast::<()>(), meta)
     }
 
     #[cfg(feature = "unsize")]
@@ -214,7 +214,7 @@ impl<T: ?Sized + Pointee> MetaHandle<T> {
     where
         T: Unsize<U>,
     {
-        let ptr: *const T = ptr::from_raw_parts(ptr::null(), self.metadata());
+        let ptr: *const T = ptr::from_raw_parts(ptr::null::<()>(), self.metadata());
         let meta = ptr::metadata(ptr as *const U);
         MetaHandle::from_metadata(meta)
     }
@@ -252,7 +252,7 @@ impl<T: ?Sized + Pointee> Handle for MetaHandle<T> {
     where
         T: Unsize<U>,
     {
-        let ptr = ptr::from_raw_parts::<T>(ptr::null(), self.metadata()) as *const U;
+        let ptr = ptr::from_raw_parts::<T>(ptr::null::<()>(), self.metadata()) as *const U;
         let meta = ptr::metadata(ptr);
         MetaHandle::from_metadata(meta)
     }
@@ -295,7 +295,10 @@ impl<T: ?Sized + Pointee> OffsetMetaHandle<T> {
     /// If offset is equal to `usize::MAX`, due to that being a reserved value
     #[inline]
     pub const fn from_offset_meta(offset: usize, meta: T::Metadata) -> OffsetMetaHandle<T> {
-        assert!(offset != usize::MAX, "OffsetMetaHandle reserves usize::MAX for niche optimization");
+        assert!(
+            offset != usize::MAX,
+            "OffsetMetaHandle reserves usize::MAX for niche optimization"
+        );
         // SAFETY: We do `offset + 1`, and offset is not usize::MAX, so the resulting value will
         //         always be in-bounds and non-zero
         OffsetMetaHandle(unsafe { NonZeroUsize::new_unchecked(offset + 1) }, meta)
@@ -358,7 +361,7 @@ impl<T: ?Sized + Pointee> OffsetMetaHandle<T> {
     where
         T: Unsize<U>,
     {
-        let ptr: *const T = ptr::from_raw_parts(ptr::null(), self.metadata());
+        let ptr: *const T = ptr::from_raw_parts(ptr::null::<()>(), self.metadata());
         let meta = ptr::metadata(ptr as *const U);
         OffsetMetaHandle(self.0, meta)
     }
@@ -398,7 +401,7 @@ impl<T: ?Sized + Pointee> Handle for OffsetMetaHandle<T> {
     where
         T: Unsize<U>,
     {
-        let ptr = ptr::from_raw_parts::<T>(ptr::null(), self.metadata()) as *const U;
+        let ptr = ptr::from_raw_parts::<T>(ptr::null::<()>(), self.metadata()) as *const U;
         let meta = ptr::metadata(ptr);
         OffsetMetaHandle::from_offset_meta(self.offset(), meta)
     }

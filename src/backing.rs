@@ -19,7 +19,7 @@ mod private {
 
 /// Trait for alignment specification types. These are ZSTs used in a backing to control its
 /// alignment
-pub trait Align: Sized + Copy + Default {}
+pub trait Align: Sized + Copy + Default + private::Sealed {}
 
 /// Give a [`Backing`] alignment 1
 #[repr(align(1))]

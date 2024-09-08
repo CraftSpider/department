@@ -13,7 +13,6 @@
     explicit_outlives_requirements,
     missing_abi,
     noop_method_call,
-    pointer_structural_match,
     semicolon_in_expressions_from_macros,
     unused_import_braces,
     unused_lifetimes,
@@ -28,12 +27,12 @@
     clippy::cast_sign_loss,
     clippy::cast_precision_loss,
     clippy::cast_possible_truncation,
-    clippy::cast_possible_wrap,
+    clippy::cast_possible_wrap
 )]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "alloc", feature(allocator_api))]
 
-#[cfg(any(feature = "alloc"))]
+#[cfg(feature = "alloc")]
 extern crate alloc as rs_alloc;
 extern crate core;
 
@@ -63,7 +62,7 @@ pub mod statics;
 
 #[cfg(feature = "box")]
 pub mod boxed;
-#[cfg(any(feature = "vec"))]
+#[cfg(any(feature = "vec", feature = "linked"))]
 pub mod collections;
 #[cfg(feature = "rc")]
 pub mod rc;
